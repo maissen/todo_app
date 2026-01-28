@@ -1,114 +1,77 @@
-# Todo App Frontend
+# Todo App - Angular Frontend
 
-A containerized todo application frontend built with HTML, CSS, and JavaScript.
+A simple Angular application that consumes the Todo API with authentication.
 
 ## Features
 
-- ✅ User authentication (login/register)
-- ✅ Create, read, update, delete todos
-- ✅ Filter todos (all, pending, completed)
-- ✅ Mark todos as complete
-- ✅ Responsive design
-- ✅ Brutalist/minimal aesthetic with distinctive design
-- ✅ Server number display on all screens
+- User registration and login
+- Create, read, update, and delete todos
+- Mark todos as completed
+- Server number display on all screens
 
 ## Configuration
 
-Edit `env.js` to configure the application:
+Edit `public/env.js` to configure the application:
 
 ```javascript
 window.ENV = {
-  API_BASE_URL: 'http://localhost:3000', // Your backend API URL
-  SERVER_NUMBER: 'Server #1', // Server identifier to display
+  API_URL: 'http://localhost:3000',  // Your backend API URL
+  SERVER_NUMBER: '1'                  // Server identifier to display
 };
 ```
 
-## Docker Setup
+## Running Locally
 
-### Build and Run with Docker Compose
-
+1. Install dependencies:
 ```bash
-# Build and start the container
-docker-compose up -d
-
-# Stop the container
-docker-compose down
-
-# View logs
-docker-compose logs -f
+npm install
 ```
 
-The application will be available at `http://localhost:8080`
-
-### Build and Run with Docker
-
+2. Start development server:
 ```bash
-# Build the image
-docker build -t todo-frontend .
-
-# Run the container
-docker run -d -p 8080:80 --name todo-frontend todo-frontend
-
-# Stop the container
-docker stop todo-frontend
-
-# Remove the container
-docker rm todo-frontend
+npm start
 ```
 
-## Running Locally (Without Docker)
+3. Open browser to `http://localhost:4200`
 
-Simply open `index.html` in a web browser, or use a local web server:
+## Docker Deployment
 
+1. Build the Docker image:
 ```bash
-# Using Python
-python -m http.server 8080
-
-# Using Node.js http-server
-npx http-server -p 8080
+docker build -t todo-app .
 ```
 
-## Usage
+2. Run the container:
+```bash
+docker run -p 80:80 todo-app
+```
 
-1. **Register**: Create a new account with username and password
-2. **Login**: Log in with your credentials
-3. **Create Todo**: Click "New Task" to add a todo
-4. **Edit Todo**: Click "Edit" on any todo item
-5. **Complete Todo**: Click the checkbox to mark as complete
-6. **Filter**: Use the filter buttons to view all, pending, or completed todos
-7. **Delete**: Click "Delete" to remove a todo
+3. Access the application at `http://localhost`
 
-## Tech Stack
+## Environment Variables
 
-- HTML5
-- CSS3 (with custom brutalist design)
-- Vanilla JavaScript
-- Docker & Nginx
-- Google Fonts (Syne, JetBrains Mono)
+You can override the environment variables at runtime by mounting a custom `env.js` file:
 
-## Design
+```bash
+docker run -p 80:80 -v $(pwd)/env.js:/usr/share/nginx/html/env.js todo-app
+```
 
-The interface features a bold brutalist/minimal aesthetic with:
-- High contrast dark theme
-- Distinctive typography (Syne for headings, JetBrains Mono for UI)
-- Neon green accent color
-- Animated background pattern
-- Box-shadow effects
-- Smooth transitions and micro-interactions
+Example `env.js`:
+```javascript
+window.ENV = {
+  API_URL: 'https://api.example.com',
+  SERVER_NUMBER: '2'
+};
+```
 
 ## API Integration
 
-The app integrates with the Todo API using the following endpoints:
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User authentication
-- `GET /todos` - Get all todos (with filtering)
-- `POST /todos` - Create new todo
-- `PUT /todos/:id` - Update todo
-- `DELETE /todos/:id` - Delete todo
+The application expects the backend API to be available at the URL specified in `API_URL`. The API should implement the endpoints documented in the API documentation.
 
-## Browser Support
+## Application Structure
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+- `src/services/` - Authentication and Todo services
+- `src/components/` - Auth and Todos components
+- `public/env.js` - Runtime configuration
+- `Dockerfile` - Container configuration
+- `nginx.conf` - Nginx routing configuration

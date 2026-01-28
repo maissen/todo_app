@@ -1,13 +1,19 @@
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
 FROM nginx:alpine
 
-# Copy the application files to nginx html directory
-COPY index.html /usr/share/nginx/html/
-COPY styles.css /usr/share/nginx/html/
-COPY app.js /usr/share/nginx/html/
-COPY env.js /usr/share/nginx/html/
+COPY --from=build /app/dist/demo/browser /usr/share/nginx/html
+COPY public/env.js /usr/share/nginx/html/env.js
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
