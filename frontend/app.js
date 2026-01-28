@@ -1,474 +1,461 @@
-// Configuration
-const API_BASE_URL = (window.ENV?.API_URL)
-const SERVER_NUMBER = window.ENV?.SERVER_NUMBER || 'N/A';
+// Todo App - Main Application Logic
 
-// State
-let authToken = localStorage.getItem('authToken');
-let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-let todos = [];
-let currentFilter = 'all';
-let currentSort = 'desc';
-let editingTodoId = null;
-
-// DOM Elements
-const authContainer = document.getElementById('auth-container');
-const appContainer = document.getElementById('app-container');
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const addTodoForm = document.getElementById('add-todo-form');
-const editTodoForm = document.getElementById('edit-todo-form');
-const todoList = document.getElementById('todo-list');
-const emptyState = document.getElementById('empty-state');
-const editModal = document.getElementById('edit-modal');
-const usernameDisplay = document.getElementById('username-display');
-const logoutBtn = document.getElementById('logout-btn');
-
-// Initialize App
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('API_BASE_URL:', API_BASE_URL);
-    console.log('SERVER_NUMBER:', SERVER_NUMBER);
-    
-    // Display server number in header
-    displayServerNumber();
-    
-    if (authToken && currentUser) {
-        showApp();
-        loadTodos();
-    } else {
-        showAuth();
+class TodoApp {
+    constructor() {
+        this.token = localStorage.getItem('token');
+        this.username = localStorage.getItem('username');
+        this.currentTodoId = null;
+        this.isEditMode = false;
+        this.todos = [];
+        
+        this.init();
     }
 
-    setupEventListeners();
-});
+    init() {
+        // Display server number
+        document.getElementById('serverNumber').textContent = ENV.SERVER_NUMBER;
 
-// Display server number in the header
-function displayServerNumber() {
-    const serverBadgeAuth = document.getElementById('server-badge-auth');
-    const serverBadgeApp = document.getElementById('server-badge-app');
-    
-    if (SERVER_NUMBER && SERVER_NUMBER !== 'N/A') {
-        const badgeText = `[Server ${SERVER_NUMBER}]`;
-        if (serverBadgeAuth) serverBadgeAuth.textContent = badgeText;
-        if (serverBadgeApp) serverBadgeApp.textContent = badgeText;
+        // Check authentication
+        if (this.token) {
+            this.showApp();
+            this.loadTodos();
+        } else {
+            this.showAuth();
+        }
+
+        this.attachEventListeners();
     }
-}
 
-// Setup Event Listeners
-function setupEventListeners() {
-    // Auth tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const tab = e.target.dataset.tab;
-            switchAuthTab(tab);
+    attachEventListeners() {
+        // Auth tabs
+        document.getElementById('loginTab').addEventListener('click', () => this.switchTab('login'));
+        document.getElementById('registerTab').addEventListener('click', () => this.switchTab('register'));
+
+        // Auth forms
+        document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
+        document.getElementById('registerForm').addEventListener('submit', (e) => this.handleRegister(e));
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+
+        // Todo controls
+        document.getElementById('addTodoBtn').addEventListener('click', () => this.openTodoModal());
+        document.getElementById('statusFilter').addEventListener('change', () => this.loadTodos());
+        document.getElementById('sortOrder').addEventListener('change', () => this.loadTodos());
+
+        // Todo modal
+        document.getElementById('closeModal').addEventListener('click', () => this.closeTodoModal());
+        document.getElementById('cancelBtn').addEventListener('click', () => this.closeTodoModal());
+        document.getElementById('todoForm').addEventListener('submit', (e) => this.handleTodoSubmit(e));
+
+        // Delete modal
+        document.getElementById('closeDeleteModal').addEventListener('click', () => this.closeDeleteModal());
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => this.closeDeleteModal());
+        document.getElementById('confirmDeleteBtn').addEventListener('click', () => this.confirmDelete());
+
+        // Close modals on background click
+        document.getElementById('todoModal').addEventListener('click', (e) => {
+            if (e.target.id === 'todoModal') this.closeTodoModal();
         });
-    });
-
-    // Auth forms
-    loginForm.addEventListener('submit', handleLogin);
-    registerForm.addEventListener('submit', handleRegister);
-
-    // Todo forms
-    addTodoForm.addEventListener('submit', handleAddTodo);
-    editTodoForm.addEventListener('submit', handleEditTodo);
-
-    // Logout
-    logoutBtn.addEventListener('click', handleLogout);
-
-    // Filters
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const filter = e.target.dataset.filter;
-            setFilter(filter);
+        document.getElementById('deleteModal').addEventListener('click', (e) => {
+            if (e.target.id === 'deleteModal') this.closeDeleteModal();
         });
-    });
+    }
 
-    // Sort
-    document.getElementById('sort-select').addEventListener('change', (e) => {
-        currentSort = e.target.value;
-        loadTodos();
-    });
+    // Authentication Methods
+    switchTab(tab) {
+        const loginTab = document.getElementById('loginTab');
+        const registerTab = document.getElementById('registerTab');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
 
-    // Modal
-    editModal.querySelector('.close-btn').addEventListener('click', closeEditModal);
-    editModal.querySelector('.cancel-btn').addEventListener('click', closeEditModal);
-    editModal.addEventListener('click', (e) => {
-        if (e.target === editModal) closeEditModal();
-    });
-}
+        if (tab === 'login') {
+            loginTab.classList.add('active');
+            registerTab.classList.remove('active');
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            this.hideError('registerError');
+        } else {
+            registerTab.classList.add('active');
+            loginTab.classList.remove('active');
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            this.hideError('loginError');
+        }
+    }
 
-// Auth Functions
-function switchAuthTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-    document.querySelectorAll('.auth-form').forEach(form => {
-        form.classList.toggle('active', form.id === `${tab}-form`);
-    });
-    clearErrors();
-}
+    async handleLogin(e) {
+        e.preventDefault();
+        this.hideError('loginError');
 
-async function handleLogin(e) {
-    e.preventDefault();
-    clearErrors();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
 
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
-
-    const loginUrl = `${API_BASE_URL}/auth/login`;
-    console.log('Login URL:', loginUrl);
-
-    try {
-        const response = await fetch(loginUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            showError('login-error', data.error?.message || 'Login failed');
+        if (!username || !password) {
+            this.showError('loginError', 'Please fill in all fields');
             return;
         }
 
-        authToken = data.token;
-        currentUser = { id: data.id, username: data.username };
-        localStorage.setItem('authToken', authToken);
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        try {
+            const response = await this.makeRequest('/auth/login', 'POST', {
+                username,
+                password
+            }, false);
 
-        showApp();
-        loadTodos();
-        loginForm.reset();
-    } catch (error) {
-        console.error('Login error:', error);
-        showError('login-error', 'Network error. Please try again.');
-    }
-}
+            this.token = response.token;
+            this.username = response.username;
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('username', this.username);
 
-async function handleRegister(e) {
-    e.preventDefault();
-    clearErrors();
-
-    const username = document.getElementById('register-username').value;
-    const password = document.getElementById('register-password').value;
-
-    if (password.length < 6) {
-        showError('register-error', 'Password must be at least 6 characters');
-        return;
+            this.showApp();
+            this.loadTodos();
+        } catch (error) {
+            this.showError('loginError', error.message || 'Login failed');
+        }
     }
 
-    const registerUrl = `${API_BASE_URL}/auth/register`;
-    console.log('Register URL:', registerUrl);
+    async handleRegister(e) {
+        e.preventDefault();
+        this.hideError('registerError');
 
-    try {
-        const response = await fetch(registerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
+        const username = document.getElementById('registerUsername').value.trim();
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            showError('register-error', data.error?.message || 'Registration failed');
+        if (!username || !password || !confirmPassword) {
+            this.showError('registerError', 'Please fill in all fields');
             return;
         }
 
-        authToken = data.token;
-        currentUser = { id: data.id, username: data.username };
-        localStorage.setItem('authToken', authToken);
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        if (password !== confirmPassword) {
+            this.showError('registerError', 'Passwords do not match');
+            return;
+        }
 
-        showApp();
-        loadTodos();
-        registerForm.reset();
-    } catch (error) {
-        console.error('Register error:', error);
-        showError('register-error', 'Network error. Please try again.');
+        if (password.length < 6) {
+            this.showError('registerError', 'Password must be at least 6 characters');
+            return;
+        }
+
+        try {
+            const response = await this.makeRequest('/auth/register', 'POST', {
+                username,
+                password
+            }, false);
+
+            this.token = response.token;
+            this.username = response.username;
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('username', this.username);
+
+            this.showApp();
+            this.loadTodos();
+        } catch (error) {
+            this.showError('registerError', error.message || 'Registration failed');
+        }
     }
-}
 
-function handleLogout() {
-    authToken = null;
-    currentUser = null;
-    todos = [];
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('currentUser');
-    showAuth();
-}
+    handleLogout() {
+        this.token = null;
+        this.username = null;
+        this.todos = [];
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        
+        this.showAuth();
+        
+        // Reset forms
+        document.getElementById('loginForm').reset();
+        document.getElementById('registerForm').reset();
+        this.switchTab('login');
+    }
 
-// UI Functions
-function showAuth() {
-    authContainer.classList.remove('hidden');
-    appContainer.classList.add('hidden');
-}
+    // Todo CRUD Methods
+    async loadTodos() {
+        const loading = document.getElementById('loading');
+        const emptyState = document.getElementById('emptyState');
+        const todoList = document.getElementById('todoList');
 
-function showApp() {
-    authContainer.classList.add('hidden');
-    appContainer.classList.remove('hidden');
-    usernameDisplay.textContent = currentUser.username;
-}
-
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.classList.add('show');
-}
-
-function clearErrors() {
-    document.querySelectorAll('.error-message').forEach(el => {
-        el.textContent = '';
-        el.classList.remove('show');
-    });
-}
-
-function setFilter(filter) {
-    currentFilter = filter;
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.filter === filter);
-    });
-    renderTodos();
-}
-
-// Todo API Functions
-async function loadTodos() {
-    try {
-        todoList.innerHTML = '<div class="loading">Loading todos...</div>';
+        loading.classList.remove('hidden');
         emptyState.classList.add('hidden');
 
-        const todosUrl = `${API_BASE_URL}/todos?sort=createdAt&order=${currentSort}`;
-        console.log('Load todos URL:', todosUrl);
+        // Remove existing todo items
+        const existingTodos = todoList.querySelectorAll('.todo-item');
+        existingTodos.forEach(todo => todo.remove());
 
-        const response = await fetch(todosUrl, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
+        const statusFilter = document.getElementById('statusFilter').value;
+        const sortOrder = document.getElementById('sortOrder').value;
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Failed to load todos');
+        let url = '/todos?sort=createdAt&order=' + sortOrder;
+        if (statusFilter) {
+            url += '&status=' + statusFilter;
         }
 
-        const data = await response.json();
-        todos = data.todos;
-        renderTodos();
-    } catch (error) {
-        console.error('Error loading todos:', error);
-        todoList.innerHTML = '<div class="loading">Error loading todos</div>';
-    }
-}
+        try {
+            const response = await this.makeRequest(url, 'GET');
+            this.todos = response.todos || [];
 
-async function handleAddTodo(e) {
-    e.preventDefault();
+            loading.classList.add('hidden');
 
-    const title = document.getElementById('todo-title').value;
-    const description = document.getElementById('todo-description').value;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/todos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ title, description })
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
+            if (this.todos.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                this.renderTodos();
             }
-            throw new Error('Failed to create todo');
+        } catch (error) {
+            loading.classList.add('hidden');
+            this.showNotification('Failed to load todos: ' + error.message, 'error');
         }
-
-        addTodoForm.reset();
-        loadTodos();
-    } catch (error) {
-        console.error('Error creating todo:', error);
-        alert('Failed to create todo');
-    }
-}
-
-async function toggleTodoComplete(id, completed) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/todos/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ completed: !completed })
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Failed to update todo');
-        }
-
-        loadTodos();
-    } catch (error) {
-        console.error('Error updating todo:', error);
-        alert('Failed to update todo');
-    }
-}
-
-async function deleteTodo(id) {
-    if (!confirm('Are you sure you want to delete this todo?')) return;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/todos/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Failed to delete todo');
-        }
-
-        loadTodos();
-    } catch (error) {
-        console.error('Error deleting todo:', error);
-        alert('Failed to delete todo');
-    }
-}
-
-function openEditModal(todo) {
-    editingTodoId = todo.id;
-    document.getElementById('edit-todo-title').value = todo.title;
-    document.getElementById('edit-todo-description').value = todo.description || '';
-    document.getElementById('edit-todo-completed').checked = todo.completed;
-    editModal.classList.remove('hidden');
-}
-
-function closeEditModal() {
-    editingTodoId = null;
-    editTodoForm.reset();
-    editModal.classList.add('hidden');
-}
-
-async function handleEditTodo(e) {
-    e.preventDefault();
-
-    const title = document.getElementById('edit-todo-title').value;
-    const description = document.getElementById('edit-todo-description').value;
-    const completed = document.getElementById('edit-todo-completed').checked;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/todos/${editingTodoId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ title, description, completed })
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                handleLogout();
-                return;
-            }
-            throw new Error('Failed to update todo');
-        }
-
-        closeEditModal();
-        loadTodos();
-    } catch (error) {
-        console.error('Error updating todo:', error);
-        alert('Failed to update todo');
-    }
-}
-
-// Render Functions
-function renderTodos() {
-    let filteredTodos = todos;
-
-    // Apply filter
-    if (currentFilter === 'completed') {
-        filteredTodos = todos.filter(todo => todo.completed);
-    } else if (currentFilter === 'pending') {
-        filteredTodos = todos.filter(todo => !todo.completed);
     }
 
-    if (filteredTodos.length === 0) {
-        todoList.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
+    renderTodos() {
+        const todoList = document.getElementById('todoList');
+        const loading = document.getElementById('loading');
+        const emptyState = document.getElementById('emptyState');
+
+        // Remove existing todo items but keep loading and empty state
+        const existingTodos = todoList.querySelectorAll('.todo-item');
+        existingTodos.forEach(todo => todo.remove());
+
+        this.todos.forEach(todo => {
+            const todoElement = this.createTodoElement(todo);
+            todoList.appendChild(todoElement);
+        });
     }
 
-    emptyState.classList.add('hidden');
-    todoList.innerHTML = filteredTodos.map(todo => createTodoElement(todo)).join('');
+    createTodoElement(todo) {
+        const div = document.createElement('div');
+        div.className = 'todo-item' + (todo.completed ? ' completed' : '');
+        div.dataset.id = todo.id;
 
-    // Attach event listeners
-    filteredTodos.forEach(todo => {
-        const todoElement = document.querySelector(`[data-todo-id="${todo.id}"]`);
-        
-        todoElement.querySelector('.todo-checkbox input').addEventListener('change', () => {
-            toggleTodoComplete(todo.id, todo.completed);
+        const date = new Date(todo.createdAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
 
-        todoElement.querySelector('.btn-edit').addEventListener('click', () => {
-            openEditModal(todo);
-        });
-
-        todoElement.querySelector('.btn-danger').addEventListener('click', () => {
-            deleteTodo(todo.id);
-        });
-    });
-}
-
-function createTodoElement(todo) {
-    const date = new Date(todo.createdAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-
-    return `
-        <div class="todo-item ${todo.completed ? 'completed' : ''}" data-todo-id="${todo.id}">
+        div.innerHTML = `
             <div class="todo-header">
-                <div class="todo-checkbox">
-                    <input type="checkbox" ${todo.completed ? 'checked' : ''}>
+                <div class="todo-title-section">
+                    <div class="todo-title">${this.escapeHtml(todo.title)}</div>
+                    <div class="todo-date">${date}</div>
                 </div>
-                <div class="todo-content">
-                    <div class="todo-title">${escapeHtml(todo.title)}</div>
-                    ${todo.description ? `<div class="todo-description">${escapeHtml(todo.description)}</div>` : ''}
-                    <div class="todo-meta">
-                        <div class="todo-date">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                <line x1="16" y1="2" x2="16" y2="6"></line>
-                                <line x1="8" y1="2" x2="8" y2="6"></line>
-                                <line x1="3" y1="10" x2="21" y2="10"></line>
-                            </svg>
-                            <span>${date}</span>
-                        </div>
-                        <span class="todo-status ${todo.completed ? 'completed' : 'pending'}">
-                            ${todo.completed ? 'Completed' : 'Pending'}
-                        </span>
-                    </div>
+                <div class="todo-actions">
+                    <button class="icon-btn complete-btn" onclick="app.toggleComplete('${todo.id}', ${!todo.completed})" title="${todo.completed ? 'Mark as pending' : 'Mark as completed'}">
+                        ${todo.completed ? '↩️' : '✓'}
+                    </button>
+                    <button class="icon-btn edit-btn" onclick="app.editTodo('${todo.id}')" title="Edit">
+                        ✏️
+                    </button>
+                    <button class="icon-btn delete-btn" onclick="app.deleteTodo('${todo.id}')" title="Delete">
+                        🗑️
+                    </button>
                 </div>
             </div>
-            <div class="todo-actions">
-                <button class="btn btn-edit">Edit</button>
-                <button class="btn btn-danger">Delete</button>
-            </div>
-        </div>
-    `;
+            ${todo.description ? `<div class="todo-description">${this.escapeHtml(todo.description)}</div>` : ''}
+            <span class="todo-status status-${todo.completed ? 'completed' : 'pending'}">
+                ${todo.completed ? 'Completed' : 'Pending'}
+            </span>
+        `;
+
+        return div;
+    }
+
+    openTodoModal(todo = null) {
+        const modal = document.getElementById('todoModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const todoForm = document.getElementById('todoForm');
+        const completedGroup = document.getElementById('completedGroup');
+
+        todoForm.reset();
+        this.hideError('todoError');
+
+        if (todo) {
+            this.isEditMode = true;
+            this.currentTodoId = todo.id;
+            modalTitle.textContent = 'Edit Todo';
+            document.getElementById('todoTitle').value = todo.title;
+            document.getElementById('todoDescription').value = todo.description || '';
+            document.getElementById('todoCompleted').checked = todo.completed;
+            completedGroup.style.display = 'block';
+        } else {
+            this.isEditMode = false;
+            this.currentTodoId = null;
+            modalTitle.textContent = 'Add Todo';
+            completedGroup.style.display = 'none';
+        }
+
+        modal.classList.remove('hidden');
+        document.getElementById('todoTitle').focus();
+    }
+
+    closeTodoModal() {
+        document.getElementById('todoModal').classList.add('hidden');
+        this.isEditMode = false;
+        this.currentTodoId = null;
+        this.hideError('todoError');
+    }
+
+    async handleTodoSubmit(e) {
+        e.preventDefault();
+        this.hideError('todoError');
+
+        const title = document.getElementById('todoTitle').value.trim();
+        const description = document.getElementById('todoDescription').value.trim();
+        const completed = document.getElementById('todoCompleted').checked;
+
+        if (!title) {
+            this.showError('todoError', 'Title is required');
+            return;
+        }
+
+        const todoData = { title };
+        if (description) todoData.description = description;
+        if (this.isEditMode) todoData.completed = completed;
+
+        try {
+            if (this.isEditMode) {
+                await this.makeRequest(`/todos/${this.currentTodoId}`, 'PUT', todoData);
+                this.showNotification('Todo updated successfully', 'success');
+            } else {
+                await this.makeRequest('/todos', 'POST', todoData);
+                this.showNotification('Todo created successfully', 'success');
+            }
+
+            this.closeTodoModal();
+            this.loadTodos();
+        } catch (error) {
+            this.showError('todoError', error.message || 'Failed to save todo');
+        }
+    }
+
+    async editTodo(id) {
+        const todo = this.todos.find(t => t.id === id);
+        if (todo) {
+            this.openTodoModal(todo);
+        }
+    }
+
+    deleteTodo(id) {
+        this.currentTodoId = id;
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        this.currentTodoId = null;
+    }
+
+    async confirmDelete() {
+        if (!this.currentTodoId) return;
+
+        try {
+            await this.makeRequest(`/todos/${this.currentTodoId}`, 'DELETE');
+            this.showNotification('Todo deleted successfully', 'success');
+            this.closeDeleteModal();
+            this.loadTodos();
+        } catch (error) {
+            this.closeDeleteModal();
+            this.showNotification('Failed to delete todo: ' + error.message, 'error');
+        }
+    }
+
+    async toggleComplete(id, completed) {
+        try {
+            await this.makeRequest(`/todos/${id}`, 'PUT', { completed });
+            this.showNotification(completed ? 'Todo marked as completed' : 'Todo marked as pending', 'success');
+            this.loadTodos();
+        } catch (error) {
+            this.showNotification('Failed to update todo: ' + error.message, 'error');
+        }
+    }
+
+    // Utility Methods
+    async makeRequest(endpoint, method = 'GET', body = null, requiresAuth = true) {
+        const url = ENV.API_BASE_URL + endpoint;
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        if (requiresAuth && this.token) {
+            options.headers['Authorization'] = `Bearer ${this.token}`;
+        }
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        try {
+            const response = await fetch(url, options);
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle specific error responses
+                if (response.status === 401) {
+                    // Token expired or invalid
+                    this.handleLogout();
+                    throw new Error('Session expired. Please login again.');
+                }
+                
+                const errorMessage = data.error?.message || data.message || 'Request failed';
+                throw new Error(errorMessage);
+            }
+
+            return data;
+        } catch (error) {
+            if (error.message === 'Failed to fetch') {
+                throw new Error('Cannot connect to server. Please check if the backend is running.');
+            }
+            throw error;
+        }
+    }
+
+    showApp() {
+        document.getElementById('authContainer').classList.add('hidden');
+        document.getElementById('appContainer').classList.remove('hidden');
+        document.getElementById('currentUsername').textContent = this.username;
+    }
+
+    showAuth() {
+        document.getElementById('appContainer').classList.add('hidden');
+        document.getElementById('authContainer').classList.remove('hidden');
+    }
+
+    showError(elementId, message) {
+        const errorElement = document.getElementById(elementId);
+        errorElement.textContent = message;
+        errorElement.classList.add('show');
+    }
+
+    hideError(elementId) {
+        const errorElement = document.getElementById(elementId);
+        errorElement.textContent = '';
+        errorElement.classList.remove('show');
+    }
+
+    showNotification(message, type = 'info') {
+        // Simple notification - you could enhance this with a toast library
+        alert(message);
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// Initialize app when DOM is ready
+let app;
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        app = new TodoApp();
+    });
+} else {
+    app = new TodoApp();
 }

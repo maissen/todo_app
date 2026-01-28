@@ -1,3 +1,4 @@
+/* Reset and Base Styles */
 * {
     margin: 0;
     padding: 0;
@@ -10,175 +11,208 @@
     --secondary-color: #6b7280;
     --success-color: #10b981;
     --danger-color: #ef4444;
-    --bg-color: #f9fafb;
-    --card-bg: #ffffff;
+    --warning-color: #f59e0b;
+    --background: #f9fafb;
+    --surface: #ffffff;
     --text-primary: #111827;
     --text-secondary: #6b7280;
     --border-color: #e5e7eb;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background-color: var(--bg-color);
+    background: var(--background);
     color: var(--text-primary);
     line-height: 1.6;
+    min-height: 100vh;
 }
 
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
+/* Server Badge */
+.server-badge {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: var(--shadow);
 }
 
-.hidden {
-    display: none !important;
+/* Authentication Container */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
 }
 
-/* Auth Styles */
-.auth-card {
-    background: var(--card-bg);
+.auth-box {
+    background: var(--surface);
+    padding: 40px;
     border-radius: 12px;
-    padding: 2rem;
     box-shadow: var(--shadow-lg);
+    width: 100%;
     max-width: 400px;
-    margin: 4rem auto;
 }
 
-.auth-card h1 {
+.auth-box h1 {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 30px;
     color: var(--primary-color);
+    font-size: 28px;
 }
 
 .auth-tabs {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    border-bottom: 2px solid var(--border-color);
+    gap: 10px;
+    margin-bottom: 30px;
 }
 
 .tab-btn {
     flex: 1;
-    padding: 0.75rem;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 500;
+    padding: 12px;
+    border: 2px solid var(--border-color);
+    background: transparent;
     color: var(--text-secondary);
-    transition: all 0.3s;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
 .tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.tab-btn:hover:not(.active) {
+    border-color: var(--primary-color);
     color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
 }
 
+/* Forms */
 .auth-form {
-    display: none;
-}
-
-.auth-form.active {
     display: block;
 }
 
-/* Form Styles */
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: 8px;
     font-weight: 500;
+    font-size: 14px;
     color: var(--text-primary);
 }
 
 .form-group input,
 .form-group textarea,
-.form-group select {
+.filter-select {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
+    padding: 12px;
+    border: 2px solid var(--border-color);
     border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+    font-family: inherit;
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
-.form-group select:focus {
+.filter-select:focus {
     outline: none;
     border-color: var(--primary-color);
 }
 
 .form-group textarea {
     resize: vertical;
-    font-family: inherit;
+    min-height: 80px;
 }
 
-/* Button Styles */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    cursor: pointer;
+}
+
+/* Buttons */
 .btn {
-    padding: 0.75rem 1.5rem;
+    padding: 12px 24px;
     border: none;
     border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .btn-primary {
-    background-color: var(--primary-color);
+    background: var(--primary-color);
     color: white;
-    width: 100%;
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-hover);
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
 }
 
 .btn-secondary {
-    background-color: var(--secondary-color);
+    background: var(--secondary-color);
     color: white;
 }
 
 .btn-secondary:hover {
-    background-color: #4b5563;
+    background: #4b5563;
 }
 
 .btn-danger {
-    background-color: var(--danger-color);
+    background: var(--danger-color);
     color: white;
-    padding: 0.5rem 1rem;
 }
 
 .btn-danger:hover {
-    background-color: #dc2626;
+    background: #dc2626;
 }
 
-.btn-edit {
-    background-color: var(--primary-color);
+.btn-success {
+    background: var(--success-color);
     color: white;
-    padding: 0.5rem 1rem;
 }
 
-.btn-edit:hover {
-    background-color: var(--primary-hover);
+.btn-success:hover {
+    background: #059669;
 }
 
-/* Error Message */
+/* Error Messages */
 .error-message {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background-color: #fee;
-    border: 1px solid var(--danger-color);
-    border-radius: 8px;
     color: var(--danger-color);
+    font-size: 14px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #fee2e2;
+    border-radius: 6px;
     display: none;
 }
 
@@ -186,146 +220,113 @@ body {
     display: block;
 }
 
-/* App Header */
+/* App Container */
+.app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-top: 60px;
+}
+
+/* Header */
 .app-header {
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    margin-bottom: 30px;
+    border-radius: 12px;
+    padding: 20px 30px;
+}
+
+.header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .app-header h1 {
     color: var(--primary-color);
+    font-size: 28px;
 }
 
-.user-info {
+.header-actions {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 20px;
 }
 
-.user-info span {
-    font-weight: 500;
-    color: var(--text-secondary);
+.username {
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
-.user-info .btn {
-    padding: 0.5rem 1rem;
-    width: auto;
-}
-
-/* Add Todo Card */
-.add-todo-card {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: var(--shadow);
-}
-
-.add-todo-card .btn-primary {
-    margin-top: 0.5rem;
-}
-
-/* Filters */
-.filters {
+/* Controls */
+.controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
-    gap: 1rem;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.filters {
+    display: flex;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
-.filter-group {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.filter-btn {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    transition: all 0.3s;
-}
-
-.filter-btn.active {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
-.sort-group select {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--card-bg);
-    cursor: pointer;
-    font-size: 0.875rem;
+.filter-select {
+    padding: 10px 16px;
+    min-width: 150px;
 }
 
 /* Todo List */
 .todo-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    display: grid;
+    gap: 15px;
 }
 
-.loading {
-    text-align: center;
-    padding: 2rem;
-    color: var(--text-secondary);
-}
-
-/* Todo Item */
 .todo-item {
-    background: var(--card-bg);
+    background: var(--surface);
+    border: 2px solid var(--border-color);
     border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 20px;
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
 
 .todo-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
 }
 
 .todo-item.completed {
     opacity: 0.7;
+    border-color: var(--success-color);
 }
 
 .todo-header {
     display: flex;
+    justify-content: space-between;
     align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 10px;
+    gap: 15px;
 }
 
-.todo-checkbox {
-    margin-top: 0.25rem;
-}
-
-.todo-checkbox input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-}
-
-.todo-content {
+.todo-title-section {
     flex: 1;
+    min-width: 0;
 }
 
 .todo-title {
-    font-size: 1.125rem;
+    font-size: 18px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 5px;
+    word-wrap: break-word;
 }
 
 .todo-item.completed .todo-title {
@@ -333,67 +334,105 @@ body {
     color: var(--text-secondary);
 }
 
-.todo-description {
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-}
-
-.todo-meta {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
 .todo-date {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.todo-status {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.todo-status.completed {
-    background-color: #d1fae5;
-    color: #065f46;
-}
-
-.todo-status.pending {
-    background-color: #fef3c7;
-    color: #92400e;
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .todo-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
-/* Empty State */
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 16px;
+}
+
+.edit-btn {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.edit-btn:hover {
+    background: #bfdbfe;
+}
+
+.delete-btn {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.delete-btn:hover {
+    background: #fecaca;
+}
+
+.complete-btn {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.complete-btn:hover {
+    background: #a7f3d0;
+}
+
+.todo-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.todo-item.completed .todo-description {
+    text-decoration: line-through;
+}
+
+.todo-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.status-completed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Loading and Empty States */
+.loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
 .empty-state {
     text-align: center;
-    padding: 4rem 2rem;
-}
-
-.empty-state svg {
+    padding: 60px 20px;
     color: var(--text-secondary);
-    margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
 }
 
 .empty-state p {
-    color: var(--text-secondary);
+    font-size: 16px;
 }
 
 /* Modal */
@@ -403,133 +442,157 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
-    align-items: center;
     justify-content: center;
-    z-index: 1000;
+    align-items: center;
+    z-index: 1001;
+    padding: 20px;
 }
 
 .modal-content {
-    background: var(--card-bg);
+    background: var(--surface);
     border-radius: 12px;
-    padding: 2rem;
+    width: 100%;
     max-width: 500px;
-    width: 90%;
     max-height: 90vh;
     overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-small {
+    max-width: 400px;
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    padding: 20px 30px;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .modal-header h2 {
-    color: var(--text-primary);
+    color: var(--primary-color);
+    font-size: 22px;
 }
 
 .close-btn {
     background: none;
     border: none;
-    font-size: 2rem;
-    cursor: pointer;
+    font-size: 28px;
     color: var(--text-secondary);
-    line-height: 1;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.3s ease;
 }
 
 .close-btn:hover {
+    background: var(--border-color);
     color: var(--text-primary);
+}
+
+.modal form,
+.modal > p {
+    padding: 30px;
 }
 
 .modal-actions {
     display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
 }
 
-.modal-actions .btn {
-    flex: 1;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-    .container {
-        padding: 1rem;
-    }
-
-    .auth-card {
-        margin: 2rem auto;
-        padding: 1.5rem;
-    }
-
-    .app-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .filters {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .filter-group {
-        width: 100%;
-    }
-
-    .filter-btn {
-        flex: 1;
-    }
-
-    .todo-actions {
-        flex-direction: column;
-    }
-
-    .todo-actions .btn {
-        width: 100%;
-    }
-}
-
-
-/* Basic server badge styling */
-.server-badge {
-    font-size: 0.6em;
-    color: #666;
-    font-weight: normal;
-    margin-left: 10px;
-    padding: 2px 8px;
-    background: #f0f0f0;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-/* Ensure other basic styles exist */
+/* Utility Classes */
 .hidden {
     display: none !important;
 }
 
-.error-message {
-    color: #dc3545;
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-    display: none;
+/* Responsive Design */
+@media (max-width: 768px) {
+    .server-badge {
+        top: 5px;
+        right: 5px;
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    .auth-box {
+        padding: 30px 20px;
+    }
+
+    .app-container {
+        padding: 15px;
+        padding-top: 50px;
+    }
+
+    .app-header {
+        padding: 15px 20px;
+    }
+
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters {
+        width: 100%;
+    }
+
+    .filter-select {
+        flex: 1;
+    }
+
+    .todo-header {
+        flex-direction: column;
+    }
+
+    .todo-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .modal-content {
+        margin: 20px;
+    }
+
+    .modal form,
+    .modal > p {
+        padding: 20px;
+    }
+
+    .modal-header {
+        padding: 15px 20px;
+    }
 }
 
-.error-message.show {
-    display: block;
+@media (max-width: 480px) {
+    .app-header h1 {
+        font-size: 22px;
+    }
+
+    .todo-title {
+        font-size: 16px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
 }
