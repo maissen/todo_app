@@ -6,7 +6,7 @@ db = db.getSiblingDB('todo_db');
 // Create application user with read/write permissions
 db.createUser({
   user: process.env.MONGO_APP_USERNAME || 'todoapp',
-  pwd: process.env.MONGO_APP_PASSWORD || 'change-this-app-password',
+  pwd: process.env.MONGO_APP_PASSWORD,
   roles: [
     {
       role: 'readWrite',
