@@ -21,24 +21,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    depends_on:
-      - todo-api
-
-  # Optional: Include backend service if running together
-  todo-api:
-    image: todo-api:latest
-    container_name: todo-api
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - NODE_ENV=production
-    networks:
-      - frontend-network
-      - backend-network
-    profiles:
-      - with-backend
 
 networks:
   frontend-network:

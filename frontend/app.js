@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = (window.ENV?.API_URL || 'http://localhost:8000').replace(/\/$/, ''); // Remove trailing slash
+const API_BASE_URL = (window.ENV?.API_URL)
 const SERVER_NUMBER = window.ENV?.SERVER_NUMBER || 'N/A';
 
 // State
