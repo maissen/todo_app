@@ -12,8 +12,20 @@ class TodoApp {
     }
 
     init() {
+        // Ensure DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initializeApp());
+        } else {
+            this.initializeApp();
+        }
+    }
+
+    initializeApp() {
         // Display server number
-        document.getElementById('serverNumber').textContent = ENV.SERVER_NUMBER;
+        const serverNumberElement = document.getElementById('serverNumber');
+        if (serverNumberElement) {
+            serverNumberElement.textContent = ENV.SERVER_NUMBER;
+        }
 
         // Check authentication
         if (this.token) {
@@ -416,14 +428,25 @@ class TodoApp {
     }
 
     showApp() {
-        document.getElementById('authContainer').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
-        document.getElementById('currentUsername').textContent = this.username;
+        const authContainer = document.getElementById('authContainer');
+        const appContainer = document.getElementById('appContainer');
+        const currentUsername = document.getElementById('currentUsername');
+        
+        if (authContainer && appContainer && currentUsername) {
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            currentUsername.textContent = this.username;
+        }
     }
 
     showAuth() {
-        document.getElementById('appContainer').classList.add('hidden');
-        document.getElementById('authContainer').classList.remove('hidden');
+        const authContainer = document.getElementById('authContainer');
+        const appContainer = document.getElementById('appContainer');
+        
+        if (authContainer && appContainer) {
+            appContainer.classList.add('hidden');
+            authContainer.classList.remove('hidden');
+        }
     }
 
     showError(elementId, message) {
@@ -452,10 +475,6 @@ class TodoApp {
 
 // Initialize app when DOM is ready
 let app;
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        app = new TodoApp();
-    });
-} else {
+document.addEventListener('DOMContentLoaded', () => {
     app = new TodoApp();
-}
+});
