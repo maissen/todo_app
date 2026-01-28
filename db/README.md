@@ -1,158 +1,311 @@
-# MongoDB Database Setup
+# MySQL Database for Todo API
 
-This folder contains the MongoDB database configuration for the Todo API.
+This directory contains the MySQL database configuration for the Todo API backend.
 
 ## Files
 
-- **docker-compose.yml** - MongoDB container orchestration
-- **.env** - MongoDB environment variables and credentials
-- **init-mongo.js** - Database initialization script
+- `docker-compose.yml` - Docker Compose configuration for MySQL
+- `.env` - Environment variables (create from `.env.example`)
+- `.env.example` - Example environment variables
+- `init.sql` - Optional initialization script
+- `README.md` - This file
 
 ## Quick Start
 
-1. **Update credentials in `.env`:**
-   ```env
-   MONGO_ROOT_USERNAME=admin
-   MONGO_ROOT_PASSWORD=your-strong-password
-   MONGO_APP_USERNAME=todoapp
-   MONGO_APP_PASSWORD=your-app-password
-   ```
+### 1. Configure Environment Variables
 
-2. **Start MongoDB:**
+Copy the example file and update with secure passwords:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and change the passwords:
+
+```env
+MYSQL_ROOT_PASSWORD=your_secure_root_password
+MYSQL_DATABASE=tododb
+MYSQL_USER=todouser
+MYSQL_PASSWORD=your_secure_user_password
+MYSQL_PORT=3306
+TZ=UTC
+```
+
+### 2. Start MySQL
+
+```bash
+docker-compose up -d
+```
+
+### 3. Verify MySQL is Running
+
+```bash
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Check health
+docker-compose exec mysql mysqladmin ping -h localhost -u root -p
+```
+
+## Connecting from Backend
+
+From your backend server, use these connection details:
+
+- **Host**: IP address or hostname of the MySQL server
+- **Port**: 3306 (or your custom port)
+- **Database**: tododb
+- **User**: todouser
+- **Password**: (from your .env file)
+
+Update your backend's `.env` file:
+
+```env
+DB_HOST=your.mysql.server.ip
+DB_PORT=3306
+DB_NAME=tododb
+DB_USER=todouser
+DB_PASSWORD=your_secure_user_password
+```
+
+## Security Considerations
+
+### For Production Deployment
+
+1. **Change Default Passwords**: Use strong, unique passwords
    ```bash
-   docker-compose up -d
+   # Generate secure passwords
+   openssl rand -base64 32
    ```
 
-3. **Verify MongoDB is running:**
+2. **Firewall Rules**: Only allow connections from your backend server
    ```bash
-   docker-compose logs -f
+   # Example with UFW
+   sudo ufw allow from BACKEND_IP to any port 3306
    ```
 
-4. **Check health status:**
-   ```bash
-   docker-compose ps
+3. **Bind to Specific IP**: Edit docker-compose.yml to bind to specific IP instead of 0.0.0.0
+   ```yaml
+   ports:
+     - "192.168.1.100:3306:3306"  # Replace with your server IP
    ```
 
-## Configuration
+4. **Use SSL/TLS**: Configure MySQL to use encrypted connections
 
-### Environment Variables
+5. **Regular Backups**: Set up automated database backups
 
-- `MONGO_PORT` - Port to expose MongoDB (default: 27017)
-- `MONGO_ROOT_USERNAME` - Root/admin username
-- `MONGO_ROOT_PASSWORD` - Root/admin password
-- `MONGO_INITDB_DATABASE` - Initial database name (todo_db)
-- `MONGO_APP_USERNAME` - Application user with read/write access
-- `MONGO_APP_PASSWORD` - Application user password
+## Database Management
 
-### Volumes
-
-Data is persisted in Docker volumes:
-- `mongodb_data` - Database files
-- `mongodb_config` - Configuration files
-
-## Connecting to MongoDB
-
-### From Host Machine
+### Access MySQL CLI
 
 ```bash
-mongosh "mongodb://admin:your-password@localhost:27017/admin"
+# Using docker exec
+docker-compose exec mysql mysql -u root -p
+
+# Or connect to specific database
+docker-compose exec mysql mysql -u todouser -p tododb
 ```
 
-### From Application
+### Create Manual Backup
 
-Use this connection string in your backend `.env`:
-
-```
-MONGODB_URI=mongodb://todoapp:your-app-password@localhost:27017/todo_db?authSource=todo_db
-```
-
-If using Docker network (recommended):
-```
-MONGODB_URI=mongodb://todoapp:your-app-password@todo-mongodb:27017/todo_db?authSource=todo_db
-```
-
-## Database Structure
-
-### Collections
-
-1. **users**
-   - Stores user accounts
-   - Index: `username` (unique)
-
-2. **todos**
-   - Stores todo items
-   - Index: `userId`, `createdAt`
-
-## Security Notes
-
-1. **Change default passwords** - Never use default credentials in production
-2. **Use strong passwords** - Minimum 16 characters with mixed case, numbers, and symbols
-3. **Network isolation** - Use Docker networks to isolate database access
-4. **Backup regularly** - Set up automated backups for production
-
-## Backup and Restore
-
-### Backup
 ```bash
-docker exec todo-mongodb mongodump --username admin --password your-password --authenticationDatabase admin --out /data/backup
-docker cp todo-mongodb:/data/backup ./backup
+# Backup database
+docker-compose exec mysql mysqldump -u root -p tododb > backup_$(date +%Y%m%d).sql
+
+# Restore from backup
+docker-compose exec -T mysql mysql -u root -p tododb < backup_20260128.sql
 ```
 
-### Restore
+### View Database Size
+
 ```bash
-docker cp ./backup todo-mongodb:/data/backup
-docker exec todo-mongodb mongorestore --username admin --password your-password --authenticationDatabase admin /data/backup
+docker-compose exec mysql mysql -u root -p -e "
+SELECT 
+    table_schema AS 'Database',
+    ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'Size (MB)'
+FROM information_schema.tables
+WHERE table_schema = 'tododb'
+GROUP BY table_schema;
+"
 ```
 
-## Useful Commands
+## Docker Commands
 
-### Stop MongoDB
 ```bash
+# Start MySQL
+docker-compose up -d
+
+# Stop MySQL
+docker-compose stop
+
+# Stop and remove container (data persists in volume)
 docker-compose down
-```
 
-### Stop and remove volumes (⚠️ deletes all data)
-```bash
+# Stop and remove everything including data volume
 docker-compose down -v
+
+# View logs
+docker-compose logs -f
+
+# Restart MySQL
+docker-compose restart
+
+# Check resource usage
+docker stats todo-mysql
 ```
 
-### View logs
+## Volume Management
+
+Data is stored in a named Docker volume `mysql_data` which persists even if the container is removed.
+
 ```bash
-docker-compose logs -f mongodb
+# List volumes
+docker volume ls
+
+# Inspect volume
+docker volume inspect mysql_mysql_data
+
+# Backup volume
+docker run --rm \
+  -v mysql_mysql_data:/data \
+  -v $(pwd):/backup \
+  ubuntu tar czf /backup/mysql_backup.tar.gz /data
+
+# Restore volume
+docker run --rm \
+  -v mysql_mysql_data:/data \
+  -v $(pwd):/backup \
+  ubuntu tar xzf /backup/mysql_backup.tar.gz -C /
 ```
 
-### Access MongoDB shell
+## Monitoring
+
+### Check MySQL Status
+
 ```bash
-docker exec -it todo-mongodb mongosh -u admin -p your-password --authenticationDatabase admin
+# Check if MySQL is accepting connections
+docker-compose exec mysql mysqladmin -u root -p status
+
+# Show process list
+docker-compose exec mysql mysql -u root -p -e "SHOW PROCESSLIST;"
+
+# Show databases
+docker-compose exec mysql mysql -u root -p -e "SHOW DATABASES;"
 ```
 
-### Check MongoDB status
+### Performance Monitoring
+
 ```bash
-docker exec todo-mongodb mongosh --eval "db.adminCommand('ping')"
+# Check slow queries
+docker-compose exec mysql mysql -u root -p -e "SHOW VARIABLES LIKE 'slow_query%';"
+
+# Check connection count
+docker-compose exec mysql mysql -u root -p -e "SHOW STATUS WHERE variable_name = 'Threads_connected';"
 ```
 
 ## Troubleshooting
 
-### Connection refused
-- Check if MongoDB container is running: `docker-compose ps`
-- Verify port is not in use: `netstat -an | grep 27017`
-- Check logs: `docker-compose logs mongodb`
+### Cannot Connect to MySQL
 
-### Authentication failed
-- Verify credentials in `.env`
-- Ensure you're using the correct authentication database
-- Check if init script ran successfully
+1. Check if container is running:
+   ```bash
+   docker-compose ps
+   ```
 
-### Permission denied
-- Ensure proper file permissions on `init-mongo.js`
-- Check Docker volume permissions
+2. Check logs for errors:
+   ```bash
+   docker-compose logs mysql
+   ```
 
-## Production Recommendations
+3. Verify port is accessible:
+   ```bash
+   netstat -tlnp | grep 3306
+   ```
 
-1. Use MongoDB replica sets for high availability
-2. Enable SSL/TLS for encrypted connections
-3. Implement regular backup strategy
-4. Monitor MongoDB performance and logs
-5. Use secrets management (Docker secrets, Kubernetes secrets)
-6. Limit network exposure (use internal networks only)
-7. Keep MongoDB version updated
+4. Test connection from backend server:
+   ```bash
+   mysql -h MYSQL_HOST -u todouser -p tododb
+   ```
+
+### Container Keeps Restarting
+
+1. Check logs:
+   ```bash
+   docker-compose logs mysql
+   ```
+
+2. Verify environment variables in `.env`
+
+3. Check disk space:
+   ```bash
+   df -h
+   ```
+
+### Permission Issues
+
+If you get permission errors, ensure the MySQL user has proper privileges:
+
+```bash
+docker-compose exec mysql mysql -u root -p -e "
+GRANT ALL PRIVILEGES ON tododb.* TO 'todouser'@'%';
+FLUSH PRIVILEGES;
+"
+```
+
+### Reset Everything
+
+To completely reset and start fresh:
+
+```bash
+# Stop and remove everything
+docker-compose down -v
+
+# Start again
+docker-compose up -d
+```
+
+## Network Configuration
+
+### Expose to Other Servers
+
+To allow connections from other servers, ensure:
+
+1. Port is mapped in docker-compose.yml (already configured)
+2. Firewall allows incoming connections on port 3306
+3. MySQL user has '%' host (already configured)
+
+### Use Custom Network
+
+If your backend is on the same Docker host, you can use a custom network:
+
+```yaml
+networks:
+  todo-network:
+    external: true
+```
+
+Then create the network:
+```bash
+docker network create todo-network
+```
+
+## Production Best Practices
+
+1. **Use specific MySQL version**: Change `mysql:8.0` to `mysql:8.0.35` for consistency
+2. **Configure memory limits**: Add resource constraints in docker-compose.yml
+3. **Set up monitoring**: Use tools like Prometheus + Grafana
+4. **Enable binary logs**: For point-in-time recovery
+5. **Regular backups**: Automate with cron jobs
+6. **Use secrets**: Instead of environment variables for passwords
+7. **Limit connections**: Set max_connections in MySQL config
+8. **Monitor disk usage**: Set up alerts for low disk space
+
+## Support
+
+For MySQL-specific issues, consult:
+- [MySQL Docker Official Documentation](https://hub.docker.com/_/mysql)
+- [MySQL 8.0 Reference Manual](https://dev.mysql.com/doc/refman/8.0/en/)
+
+For Todo API integration issues, refer to the backend README.

@@ -1,175 +1,312 @@
-# Todo API
+# Todo API - FastAPI Backend
 
-A RESTful API for managing todos with JWT authentication and MongoDB.
+A RESTful API for managing todos, built with FastAPI and MySQL.
 
 ## Features
 
-- User registration and authentication with JWT
-- CRUD operations for todos
-- Filter and sort todos
-- Per-user todo isolation
-- Comprehensive error handling
+- ✅ User authentication with JWT tokens
+- ✅ CRUD operations for todos
+- ✅ MySQL database integration
+- ✅ Docker containerization
+- ✅ Environment-based configuration
+- ✅ Comprehensive error handling
+
+## Tech Stack
+
+- **FastAPI**: Modern Python web framework
+- **SQLAlchemy**: SQL toolkit and ORM
+- **MySQL**: Relational database (external)
+- **JWT**: Token-based authentication
+- **Docker**: Containerization
+- **Uvicorn**: ASGI server
+
+## Project Structure
+
+```
+.
+├── main.py              # FastAPI application and endpoints
+├── models.py            # SQLAlchemy database models
+├── schemas.py           # Pydantic schemas for validation
+├── database.py          # Database configuration
+├── auth.py              # Authentication utilities
+├── requirements.txt     # Python dependencies
+├── Dockerfile           # Docker image configuration
+├── docker-compose.yml   # Docker Compose setup
+├── .env.example         # Example environment variables
+└── README.md            # This file
+```
 
 ## Prerequisites
 
-- Node.js 18 or higher
-- Docker and Docker Compose (for containerized deployment)
-- Remote MongoDB instance
+- Docker and Docker Compose
+- MySQL database server (running separately)
 
-## Environment Variables
+## Setup Instructions
 
-Create a `.env` file in the root directory with the following variables:
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd todo-api
+```
+
+### 2. Configure Environment Variables
+
+Copy the example environment file and update with your values:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your database credentials:
 
 ```env
-PORT=3000
-NODE_ENV=production
-MONGODB_URI=mongodb://username:password@your-remote-host:27017/todo_db?authSource=admin
-DB_NAME=todo_db
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRATION=24h
+# Database Configuration
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=your_mysql_host  # e.g., mysql.example.com or IP address
+DB_PORT=3306
+DB_NAME=tododb
+
+# JWT Configuration
+SECRET_KEY=your-super-secret-key-here  # Generate with: openssl rand -hex 32
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=10080  # 7 days
+
+# Application Configuration
+APP_HOST=0.0.0.0
+APP_PORT=8000
 ```
 
-**Important:** Update the following values:
-- `MONGODB_URI`: Your actual MongoDB connection string
-- `JWT_SECRET`: Use a strong, random secret key
+### 3. Prepare MySQL Database
 
-## Installation
+On your MySQL server, create the database:
 
-### Local Development
+```sql
+CREATE DATABASE tododb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'your_db_user'@'%' IDENTIFIED BY 'your_db_password';
+GRANT ALL PRIVILEGES ON tododb.* TO 'your_db_user'@'%';
+FLUSH PRIVILEGES;
+```
 
-1. Install dependencies:
+Ensure your MySQL server allows connections from the backend server's IP address.
+
+### 4. Build and Run with Docker
+
 ```bash
-npm install
+# Build the Docker image
+docker build -t todo-api .
+
+# Run the container
+docker run -d \
+  --name todo-api \
+  -p 8000:8000 \
+  --env-file .env \
+  todo-api
 ```
 
-2. Start the server:
-```bash
-npm start
-```
+Or using Docker Compose:
 
-For development with auto-reload:
-```bash
-npm run dev
-```
-
-### Docker Deployment
-
-1. Build and start the container:
 ```bash
 docker-compose up -d
 ```
 
-2. View logs:
+### 5. Verify the API is Running
+
 ```bash
-docker-compose logs -f
+curl http://localhost:8000/
 ```
 
-3. Stop the container:
-```bash
-docker-compose down
-```
+You should see: `{"message":"Todo API is running"}`
+
+## API Documentation
+
+Once the server is running, access the interactive API documentation:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
 ## API Endpoints
 
 ### Authentication
 
-#### Register User
-```
-POST /auth/register
-Content-Type: application/json
-
-{
-  "username": "johndoe",
-  "password": "securepassword"
-}
-```
-
-#### Login
-```
-POST /auth/login
-Content-Type: application/json
-
-{
-  "username": "johndoe",
-  "password": "securepassword"
-}
-```
+- `POST /auth/register` - Register a new user
+- `POST /auth/login` - Login and receive JWT token
 
 ### Todos
 
-All todo endpoints require authentication via JWT token:
-```
-Authorization: Bearer <your_jwt_token>
+- `GET /todos` - Get all todos (with optional filters)
+- `GET /todos/{id}` - Get a specific todo
+- `POST /todos` - Create a new todo
+- `PUT /todos/{id}` - Update a todo
+- `DELETE /todos/{id}` - Delete a todo
+
+All todo endpoints require authentication via Bearer token.
+
+## Example Usage
+
+### 1. Register a User
+
+```bash
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "testpass123"
+  }'
 ```
 
-#### Get All Todos
-```
-GET /todos
-GET /todos?status=completed
-GET /todos?status=pending&sort=createdAt&order=asc
-```
-
-#### Get Single Todo
-```
-GET /todos/:id
-```
-
-#### Create Todo
-```
-POST /todos
-Content-Type: application/json
-
-{
-  "title": "Buy groceries",
-  "description": "Milk, eggs, bread"
-}
-```
-
-#### Update Todo
-```
-PUT /todos/:id
-Content-Type: application/json
-
-{
-  "title": "Buy groceries",
-  "description": "Milk, eggs, bread, butter",
-  "completed": true
-}
-```
-
-#### Delete Todo
-```
-DELETE /todos/:id
-```
-
-## Health Check
-
-```
-GET /health
-```
-
-## Error Handling
-
-All errors follow a consistent format:
-
+Response:
 ```json
 {
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human readable error message",
-    "details": {}
-  }
+  "id": "uuid-here",
+  "username": "testuser",
+  "token": "jwt-token-here"
 }
 ```
 
-## Security Notes
+### 2. Login
 
-1. Always use HTTPS in production
-2. Change the `JWT_SECRET` to a strong, random value
-3. Use environment variables for sensitive data
-4. Implement rate limiting for production use
-5. Add CORS configuration as needed
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "testpass123"
+  }'
+```
+
+### 3. Create a Todo
+
+```bash
+curl -X POST http://localhost:8000/todos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "title": "Buy groceries",
+    "description": "Milk, eggs, bread"
+  }'
+```
+
+### 4. Get All Todos
+
+```bash
+curl -X GET http://localhost:8000/todos \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### 5. Update a Todo
+
+```bash
+curl -X PUT http://localhost:8000/todos/TODO_ID \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "completed": true
+  }'
+```
+
+### 6. Delete a Todo
+
+```bash
+curl -X DELETE http://localhost:8000/todos/TODO_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Docker Commands
+
+```bash
+# Build image
+docker build -t todo-api .
+
+# Run container
+docker run -d -p 8000:8000 --env-file .env --name todo-api todo-api
+
+# View logs
+docker logs todo-api
+
+# Stop container
+docker stop todo-api
+
+# Remove container
+docker rm todo-api
+
+# Using Docker Compose
+docker-compose up -d        # Start
+docker-compose logs -f      # View logs
+docker-compose down         # Stop and remove
+```
+
+## Database Schema
+
+### Users Table
+- `id` (VARCHAR 36, PRIMARY KEY)
+- `username` (VARCHAR 255, UNIQUE)
+- `hashed_password` (VARCHAR 255)
+- `created_at` (DATETIME)
+
+### Todos Table
+- `id` (VARCHAR 36, PRIMARY KEY)
+- `title` (VARCHAR 255)
+- `description` (TEXT)
+- `completed` (BOOLEAN)
+- `created_at` (DATETIME)
+- `updated_at` (DATETIME)
+- `user_id` (VARCHAR 36, FOREIGN KEY)
+
+## Security Considerations
+
+1. **Change the SECRET_KEY**: Generate a secure random key:
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. **Use HTTPS**: In production, always use HTTPS
+
+3. **Secure Database**: Use strong passwords and limit network access
+
+4. **Environment Variables**: Never commit `.env` file to version control
+
+5. **CORS**: Configure CORS settings for production use
+
+## Production Deployment
+
+For production deployment:
+
+1. Use a reverse proxy (Nginx/Traefik)
+2. Enable HTTPS with SSL certificates
+3. Use a production-grade ASGI server configuration
+4. Set up monitoring and logging
+5. Configure database connection pooling
+6. Implement rate limiting
+7. Set up backup strategies
+
+## Troubleshooting
+
+### Cannot connect to MySQL
+
+- Verify MySQL server is running
+- Check firewall rules allow connection from backend
+- Verify database credentials in `.env`
+- Ensure database exists
+
+### Database tables not created
+
+The application automatically creates tables on startup. If they're not created:
+- Check database permissions
+- Verify database connection
+- Check application logs: `docker logs todo-api`
+
+### Token errors
+
+- Verify SECRET_KEY is set correctly
+- Check token hasn't expired
+- Ensure Authorization header format: `Bearer <token>`
 
 ## License
 
-ISC
+MIT License
+
+## Support
+
+For issues and questions, please open an issue on the repository.
