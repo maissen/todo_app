@@ -504,3 +504,32 @@ body {
         width: 100%;
     }
 }
+
+
+/* Basic server badge styling */
+.server-badge {
+    font-size: 0.6em;
+    color: #666;
+    font-weight: normal;
+    margin-left: 10px;
+    padding: 2px 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* Ensure other basic styles exist */
+.hidden {
+    display: none !important;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}

@@ -1,5 +1,6 @@
 // Configuration
-const API_BASE_URL = window.ENV?.API_URL || 'http://localhost:3000';
+const API_BASE_URL = (window.ENV?.API_URL || 'http://localhost:8000').replace(/\/$/, ''); // Remove trailing slash
+const SERVER_NUMBER = window.ENV?.SERVER_NUMBER || 'N/A';
 
 // State
 let authToken = localStorage.getItem('authToken');
@@ -24,6 +25,12 @@ const logoutBtn = document.getElementById('logout-btn');
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('SERVER_NUMBER:', SERVER_NUMBER);
+    
+    // Display server number in header
+    displayServerNumber();
+    
     if (authToken && currentUser) {
         showApp();
         loadTodos();
@@ -33,6 +40,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupEventListeners();
 });
+
+// Display server number in the header
+function displayServerNumber() {
+    const serverBadgeAuth = document.getElementById('server-badge-auth');
+    const serverBadgeApp = document.getElementById('server-badge-app');
+    
+    if (SERVER_NUMBER && SERVER_NUMBER !== 'N/A') {
+        const badgeText = `[Server ${SERVER_NUMBER}]`;
+        if (serverBadgeAuth) serverBadgeAuth.textContent = badgeText;
+        if (serverBadgeApp) serverBadgeApp.textContent = badgeText;
+    }
+}
 
 // Setup Event Listeners
 function setupEventListeners() {
@@ -95,8 +114,11 @@ async function handleLogin(e) {
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
 
+    const loginUrl = `${API_BASE_URL}/auth/login`;
+    console.log('Login URL:', loginUrl);
+
     try {
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        const response = await fetch(loginUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -118,6 +140,7 @@ async function handleLogin(e) {
         loadTodos();
         loginForm.reset();
     } catch (error) {
+        console.error('Login error:', error);
         showError('login-error', 'Network error. Please try again.');
     }
 }
@@ -134,8 +157,11 @@ async function handleRegister(e) {
         return;
     }
 
+    const registerUrl = `${API_BASE_URL}/auth/register`;
+    console.log('Register URL:', registerUrl);
+
     try {
-        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        const response = await fetch(registerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -157,6 +183,7 @@ async function handleRegister(e) {
         loadTodos();
         registerForm.reset();
     } catch (error) {
+        console.error('Register error:', error);
         showError('register-error', 'Network error. Please try again.');
     }
 }
@@ -209,9 +236,10 @@ async function loadTodos() {
         todoList.innerHTML = '<div class="loading">Loading todos...</div>';
         emptyState.classList.add('hidden');
 
-        let url = `${API_BASE_URL}/todos?sort=createdAt&order=${currentSort}`;
+        const todosUrl = `${API_BASE_URL}/todos?sort=createdAt&order=${currentSort}`;
+        console.log('Load todos URL:', todosUrl);
 
-        const response = await fetch(url, {
+        const response = await fetch(todosUrl, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
