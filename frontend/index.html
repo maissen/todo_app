@@ -1,144 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo Application</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TODO — Task Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Server Number Badge -->
-    <div class="server-badge" id="serverBadge">Server #<span id="serverNumber"></span></div>
-
-    <!-- Authentication Container -->
-    <div class="auth-container" id="authContainer">
-        <div class="auth-box">
-            <h1>Todo App</h1>
-            <div class="auth-tabs">
-                <button class="tab-btn active" id="loginTab">Login</button>
-                <button class="tab-btn" id="registerTab">Register</button>
-            </div>
-
-            <!-- Login Form -->
-            <form id="loginForm" class="auth-form">
-                <div class="form-group">
-                    <label for="loginUsername">Username</label>
-                    <input type="text" id="loginUsername" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="loginPassword">Password</label>
-                    <input type="password" id="loginPassword" required autocomplete="current-password">
-                </div>
-                <div class="error-message" id="loginError"></div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
-
-            <!-- Register Form -->
-            <form id="registerForm" class="auth-form hidden">
-                <div class="form-group">
-                    <label for="registerUsername">Username</label>
-                    <input type="text" id="registerUsername" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="registerPassword">Password</label>
-                    <input type="password" id="registerPassword" required autocomplete="new-password">
-                </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Confirm Password</label>
-                    <input type="password" id="confirmPassword" required autocomplete="new-password">
-                </div>
-                <div class="error-message" id="registerError"></div>
-                <button type="submit" class="btn btn-primary">Register</button>
-            </form>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="screen active">
+    <div class="container">
+      <div class="header-brand">
+        <h1 class="brand-title">TODO</h1>
+        <div class="server-badge" id="serverBadgeLogin"></div>
+      </div>
+      
+      <div class="auth-container">
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Log In</button>
+          <button class="tab" data-tab="register">Register</button>
         </div>
+
+        <form id="loginForm" class="auth-form active">
+          <div class="form-group">
+            <label for="loginUsername">Username</label>
+            <input type="text" id="loginUsername" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" required>
+          </div>
+          <button type="submit" class="btn-primary">Enter</button>
+          <div class="error-message" id="loginError"></div>
+        </form>
+
+        <form id="registerForm" class="auth-form">
+          <div class="form-group">
+            <label for="registerUsername">Username</label>
+            <input type="text" id="registerUsername" required>
+          </div>
+          <div class="form-group">
+            <label for="registerPassword">Password</label>
+            <input type="password" id="registerPassword" required>
+          </div>
+          <button type="submit" class="btn-primary">Create Account</button>
+          <div class="error-message" id="registerError"></div>
+        </form>
+      </div>
     </div>
+  </div>
 
-    <!-- Main App Container -->
-    <div class="app-container hidden" id="appContainer">
-        <!-- Header -->
-        <header class="app-header">
-            <div class="header-content">
-                <h1>My Todos</h1>
-                <div class="header-actions">
-                    <span class="username" id="currentUsername"></span>
-                    <button class="btn btn-secondary" id="logoutBtn">Logout</button>
-                </div>
-            </div>
-        </header>
+  <!-- Main App Screen -->
+  <div id="appScreen" class="screen">
+    <div class="app-container">
+      <header class="app-header">
+        <div class="header-left">
+          <h1 class="app-title">TODO</h1>
+          <span class="user-info" id="userInfo"></span>
+        </div>
+        <div class="header-right">
+          <div class="server-badge" id="serverBadgeApp"></div>
+          <button id="logoutBtn" class="btn-text">Log Out</button>
+        </div>
+      </header>
 
-        <!-- Filters and Controls -->
-        <div class="controls">
-            <div class="filters">
-                <select id="statusFilter" class="filter-select">
-                    <option value="">All Todos</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                </select>
-                <select id="sortOrder" class="filter-select">
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" id="addTodoBtn">+ Add Todo</button>
+      <main class="app-main">
+        <div class="todo-controls">
+          <button id="newTodoBtn" class="btn-primary">+ New Task</button>
+          <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+          </div>
         </div>
 
-        <!-- Todo List -->
-        <div class="todo-list" id="todoList">
-            <div class="loading" id="loading">Loading todos...</div>
-            <div class="empty-state hidden" id="emptyState">
-                <p>No todos found. Create your first todo!</p>
-            </div>
+        <div class="todo-stats" id="todoStats"></div>
+
+        <div id="todoList" class="todo-list"></div>
+        
+        <div class="loading-state" id="loadingState">Loading...</div>
+        <div class="empty-state" id="emptyState">
+          <p>No tasks yet. Create one to get started.</p>
         </div>
+      </main>
     </div>
+  </div>
 
-    <!-- Add/Edit Todo Modal -->
-    <div class="modal hidden" id="todoModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add Todo</h2>
-                <button class="close-btn" id="closeModal">&times;</button>
-            </div>
-            <form id="todoForm">
-                <div class="form-group">
-                    <label for="todoTitle">Title *</label>
-                    <input type="text" id="todoTitle" required maxlength="200">
-                </div>
-                <div class="form-group">
-                    <label for="todoDescription">Description</label>
-                    <textarea id="todoDescription" rows="4" maxlength="1000"></textarea>
-                </div>
-                <div class="form-group" id="completedGroup" style="display: none;">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="todoCompleted">
-                        <span>Completed</span>
-                    </label>
-                </div>
-                <div class="error-message" id="todoError"></div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="saveTodoBtn">Save</button>
-                </div>
-            </form>
+  <!-- New/Edit Todo Modal -->
+  <div id="todoModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">New Task</h2>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <form id="todoForm">
+        <div class="form-group">
+          <label for="todoTitle">Title</label>
+          <input type="text" id="todoTitle" required>
         </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal hidden" id="deleteModal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>Delete Todo</h2>
-                <button class="close-btn" id="closeDeleteModal">&times;</button>
-            </div>
-            <p>Are you sure you want to delete this todo?</p>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
-                <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
-            </div>
+        <div class="form-group">
+          <label for="todoDescription">Description (optional)</label>
+          <textarea id="todoDescription" rows="4"></textarea>
         </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-text" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn-primary">Save</button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Load environment config and app script -->
-    <script src="env.js"></script>
-    <script src="app.js"></script>
+  <script src="env.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
