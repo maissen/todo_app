@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  todo-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    environment:
+      - API_URL=${API_URL}
+    env_file:
+      - .env
+    networks:
+      - frontend-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - todo-api
+
+  # Optional: Include backend service if running together
+  todo-api:
+    image: todo-api:latest
+    container_name: todo-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    networks:
+      - frontend-network
+      - backend-network
+    profiles:
+      - with-backend
+
+networks:
+  frontend-network:
+    driver: bridge
+  backend-network:
+    driver: bridge
