@@ -2,8 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth.service';
-
-declare const window: any;
+import { environment } from '../environments';
 
 export interface Todo {
   id: string;
@@ -23,7 +22,7 @@ interface TodosResponse {
   providedIn: 'root'
 })
 export class TodoService {
-  private apiUrl = window.ENV.API_URL;
+  private apiUrl = environment.apiUrl;
 
   constructor(
     private http: HttpClient,
