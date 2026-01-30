@@ -1,7 +1,7 @@
 (() => {
   window.__ENV = {
-    VITE_API_URL: getEnvVar('VITE_API_URL', 'http://localhost:3000'),
-    VITE_SERVER_NUMBER: getEnvVar('VITE_SERVER_NUMBER', '1'),
+    VITE_API_URL: getEnvVar('VITE_API_URL'),
+    VITE_SERVER_NUMBER: getEnvVar('VITE_SERVER_NUMBER'),
   };
 
   function getEnvVar(key, defaultValue) {

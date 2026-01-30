@@ -11,13 +11,18 @@ A simple Angular application that consumes the Todo API with authentication.
 
 ## Configuration
 
-Edit `public/env.js` to configure the application:
+The application uses environment variables for configuration. Create a `.env` file based on `.env.example`:
 
-```javascript
-window.ENV = {
-  API_URL: 'http://localhost:3000',  // Your backend API URL
-  SERVER_NUMBER: '1'                  // Server identifier to display
-};
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` to set your backend API URL:
+
+```env
+VITE_API_URL=http://18.212.160.227:8000/
+VITE_SERVER_NUMBER=1
+FRONTEND_PORT=80
 ```
 
 ## Running Locally
@@ -50,19 +55,13 @@ docker run -p 80:80 todo-app
 
 ## Environment Variables
 
-You can override the environment variables at runtime by mounting a custom `env.js` file:
+The application reads configuration from environment variables:
 
-```bash
-docker run -p 80:80 -v $(pwd)/env.js:/usr/share/nginx/html/env.js todo-app
-```
+- `VITE_API_URL`: Backend API endpoint (required)
+- `VITE_SERVER_NUMBER`: Server identifier to display (optional, defaults to 1)
+- `FRONTEND_PORT`: Port to expose in Docker (optional, defaults to 80)
 
-Example `env.js`:
-```javascript
-window.ENV = {
-  API_URL: 'https://api.example.com',
-  SERVER_NUMBER: '2'
-};
-```
+When running with Docker, these variables are passed through docker-compose.
 
 ## API Integration
 
