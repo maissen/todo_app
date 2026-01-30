@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TodoService, Todo } from '../services/todo.service';
 import { AuthService } from '../services/auth.service';
-import { environment } from '../environments';
+
+declare const window: any;
 
 @Component({
   selector: 'app-todos',
@@ -92,7 +93,7 @@ export class TodosComponent implements OnInit {
   newDescription = '';
   loading = false;
   error = '';
-  serverNumber = environment.serverNumber;
+  serverNumber = window.ENV.SERVER_NUMBER;
 
   constructor(
     private todoService: TodoService,
