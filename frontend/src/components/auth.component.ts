@@ -3,8 +3,7 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
-
-declare const window: any;
+import { environment } from '../environments';
 
 @Component({
   selector: 'app-auth',
@@ -65,7 +64,7 @@ export class AuthComponent {
   password = '';
   isLogin = true;
   error = '';
-  serverNumber = window.ENV.SERVER_NUMBER;
+  serverNumber = environment.serverNumber;
 
   constructor(
     private authService: AuthService,
