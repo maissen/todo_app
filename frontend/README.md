@@ -1,76 +1,80 @@
-# Todo App - Angular Frontend
+# Todo App - Web Client
 
-A simple Angular application that consumes the Todo API with authentication.
+A simple, stunning todo application with an olive green theme that consumes the Todo API.
 
 ## Features
 
 - User registration and login
 - Create, read, update, and delete todos
 - Mark todos as completed
-- Server number display on all screens
+- Filter todos (All, Pending, Completed)
+- Beautiful olive green themed UI
+- Responsive design
+- Server number display badge
+
+## Quick Start
+
+### Using Docker Compose (Recommended)
+
+1. Make sure Docker and Docker Compose are installed
+2. Run the application:
+
+```bash
+docker-compose up -d
+```
+
+3. Access the app at `http://localhost`
+
+### Manual Docker Build
+
+```bash
+docker build -t todo-web .
+docker run -d -p 80:80 --name todo-web todo-web
+```
+
+### Stop the Application
+
+```bash
+docker-compose down
+```
 
 ## Configuration
 
-The application uses environment variables for configuration. Create a `.env` file based on `.env.example`:
+Edit `env.js` to change the API URL or server number:
 
-```bash
-cp .env.example .env
+```javascript
+const ENV = {
+  API_URL: 'http://3.82.236.145:8000',
+  SERVER_NUMBER: '1'
+};
 ```
 
-Then edit `.env` to set your backend API URL:
+## File Structure
 
-```env
-VITE_API_URL=http://18.212.160.227:8000/
-VITE_SERVER_NUMBER=1
-FRONTEND_PORT=80
+```
+.
+├── index.html          # Login/Register page
+├── app.html           # Main todo application page
+├── styles.css         # Styles with olive green theme
+├── auth.js            # Authentication logic
+├── app.js             # Todo management logic
+├── env.js             # Environment configuration
+├── Dockerfile         # Docker configuration
+├── docker-compose.yml # Docker Compose configuration
+└── README.md          # This file
 ```
 
-## Running Locally
+## Technology Stack
 
-1. Install dependencies:
-```bash
-npm install
-```
+- HTML5
+- CSS3 (vanilla, no frameworks)
+- JavaScript (vanilla, no frameworks)
+- Nginx (Alpine)
+- Docker
 
-2. Start development server:
-```bash
-npm start
-```
+## Notes
 
-3. Open browser to `http://localhost:4200`
-
-## Docker Deployment
-
-1. Build the Docker image:
-```bash
-docker build -t todo-app .
-```
-
-2. Run the container:
-```bash
-docker run -p 80:80 todo-app
-```
-
-3. Access the application at `http://localhost`
-
-## Environment Variables
-
-The application reads configuration from environment variables:
-
-- `VITE_API_URL`: Backend API endpoint (required)
-- `VITE_SERVER_NUMBER`: Server identifier to display (optional, defaults to 1)
-- `FRONTEND_PORT`: Port to expose in Docker (optional, defaults to 80)
-
-When running with Docker, these variables are passed through docker-compose.
-
-## API Integration
-
-The application expects the backend API to be available at the URL specified in `API_URL`. The API should implement the endpoints documented in the API documentation.
-
-## Application Structure
-
-- `src/services/` - Authentication and Todo services
-- `src/components/` - Auth and Todos components
-- `public/env.js` - Runtime configuration
-- `Dockerfile` - Container configuration
-- `nginx.conf` - Nginx routing configuration
+- Authentication tokens are stored in sessionStorage (temporary, cleared when browser closes)
+- No data is cached - everything is fetched fresh from the API
+- Simple and minimal code to avoid debugging issues
+- Beautiful, modern UI with smooth transitions
