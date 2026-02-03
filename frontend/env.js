@@ -1,4 +1,0 @@
-const ENV = {
-  API_URL: 'http://3.82.236.145:8000',
-  SERVER_NUMBER: '1'
-};

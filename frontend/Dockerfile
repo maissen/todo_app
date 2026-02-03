@@ -1,15 +1,19 @@
-FROM nginx:alpine
+FROM python:3.11-slim
 
-# Copy website files to nginx html directory
-COPY index.html /usr/share/nginx/html/
-COPY app.html /usr/share/nginx/html/
-COPY styles.css /usr/share/nginx/html/
-COPY auth.js /usr/share/nginx/html/
-COPY app.js /usr/share/nginx/html/
-COPY env.js /usr/share/nginx/html/
+WORKDIR /app
 
-# Expose port 80
-EXPOSE 80
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Copy application files
+COPY app.py .
+COPY .env .
+COPY templates/ templates/
+COPY static/ static/
+
+# Expose port
+EXPOSE 5000
+
+# Run with gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
