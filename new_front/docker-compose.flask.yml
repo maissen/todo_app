@@ -1,0 +1,11 @@
+services:
+  todo-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: todo-web-flask
+    ports:
+      - "80:5000"
+    env_file:
+      - .env
+    restart: unless-stopped
