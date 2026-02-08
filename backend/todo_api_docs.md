@@ -97,6 +97,7 @@ Authorization: Bearer <token>
       "title": "string",
       "description": "string",
       "completed": false,
+      "imageUrl": "string | null",
       "createdAt": "2026-01-26T10:00:00Z"
     }
   ],
@@ -126,6 +127,7 @@ Authorization: Bearer <token>
   "title": "string",
   "description": "string",
   "completed": false,
+  "imageUrl": "string | null",
   "createdAt": "2026-01-26T10:00:00Z"
 }
 ```
@@ -162,6 +164,7 @@ Authorization: Bearer <token>
   "title": "string",
   "description": "string",
   "completed": false,
+  "imageUrl": null,
   "createdAt": "2026-01-26T10:00:00Z"
 }
 ```
@@ -199,6 +202,7 @@ Authorization: Bearer <token>
   "title": "string",
   "description": "string",
   "completed": false,
+  "imageUrl": "string | null",
   "createdAt": "2026-01-26T10:00:00Z",
   "updatedAt": "2026-01-26T10:00:00Z"
 }
@@ -231,6 +235,109 @@ Authorization: Bearer <token>
 
 ---
 
+### Todo Media
+
+#### Upload Image for Todo
+Upload an image for a specific todo item. Maximum file size: 5MB. Supported formats: JPEG, PNG, GIF, WEBP.
+
+**Endpoint:** `POST /todos/:id/image`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+- `image` (file): The image file to upload
+
+**Response:** `200 OK`
+```json
+{
+  "id": "string",
+  "title": "string",
+  "description": "string",
+  "completed": false,
+  "imageUrl": "https://your-bucket.s3.amazonaws.com/todos/user123/todo456.jpg",
+  "createdAt": "2026-01-26T10:00:00Z",
+  "updatedAt": "2026-01-26T10:00:00Z"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - Todo not found
+- `403 Forbidden` - Todo belongs to another user
+- `400 Bad Request` - No file provided or invalid file type
+- `413 Payload Too Large` - File exceeds maximum size
+- `500 Internal Server Error` - S3 upload failed
+
+**Example cURL:**
+```bash
+curl -X POST \
+  https://api.example.com/todos/123/image \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@/path/to/image.jpg"
+```
+
+---
+
+#### Get Todo Image
+Retrieve the image URL for a todo item. If the S3 bucket is private, this endpoint returns a signed URL valid for 1 hour.
+
+**Endpoint:** `GET /todos/:id/image`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "imageUrl": "https://your-bucket.s3.amazonaws.com/todos/user123/todo456.jpg",
+  "expiresAt": "2026-01-26T11:00:00Z" // only if using signed URLs
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - Todo not found or todo has no image
+- `403 Forbidden` - Todo belongs to another user
+
+---
+
+#### Delete Todo Image
+Delete the image associated with a todo item.
+
+**Endpoint:** `DELETE /todos/:id/image`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "string",
+  "title": "string",
+  "description": "string",
+  "completed": false,
+  "imageUrl": null,
+  "createdAt": "2026-01-26T10:00:00Z",
+  "updatedAt": "2026-01-26T10:00:00Z"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - Todo not found or todo has no image
+- `403 Forbidden` - Todo belongs to another user
+- `500 Internal Server Error` - S3 deletion failed
+
+---
+
 ## Error Response Format
 
 All error responses follow this structure:
@@ -255,4 +362,26 @@ All error responses follow this structure:
 - `UNAUTHORIZED_ACCESS` - User doesn't have permission
 - `VALIDATION_ERROR` - Input validation failed
 - `INTERNAL_ERROR` - Server error
+- `INVALID_FILE_TYPE` - File type not supported
+- `FILE_TOO_LARGE` - File exceeds maximum size limit
+- `NO_IMAGE_FOUND` - Todo item has no associated image
+- `UPLOAD_FAILED` - Failed to upload file to storage
+- `DELETE_FAILED` - Failed to delete file from storage
 
+## Database Schema Changes
+
+The Todo model now includes:
+
+```javascript
+{
+  id: "string",
+  title: "string",
+  description: "string",
+  completed: "boolean",
+  imageUrl: "string | null",      // S3 URL of the image
+  imageKey: "string | null",       // S3 object key for deletion
+  userId: "string",
+  createdAt: "datetime",
+  updatedAt: "datetime"
+}
+```
