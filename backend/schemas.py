@@ -16,8 +16,6 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: str
     username: str
-    profilePictureUrl: Optional[str] = None
-    updatedAt: Optional[datetime] = None
     token: str
 
 
@@ -42,7 +40,6 @@ class TodoResponse(BaseModel):
     updatedAt: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
         from_attributes = True
     
     @classmethod
@@ -61,20 +58,3 @@ class TodoResponse(BaseModel):
 class TodoListResponse(BaseModel):
     todos: List[TodoResponse]
     total: int
-
-
-class ProfilePictureResponse(BaseModel):
-    id: str
-    username: str
-    profilePictureUrl: Optional[str] = None
-    updatedAt: Optional[datetime]
-
-
-class ProfilePictureGetResponse(BaseModel):
-    profilePictureUrl: Optional[str] = None
-
-
-class PresignedUrlResponse(BaseModel):
-    presignedUrl: str
-    objectKey: str
-    expiresAt: datetime

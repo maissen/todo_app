@@ -22,6 +22,14 @@
             <form id="addTodoForm" class="add-todo-form">
                 <input type="text" id="todoTitle" placeholder="What needs to be done?" required>
                 <input type="text" id="todoDescription" placeholder="Description (optional)">
+                <div class="image-upload-container">
+                    <label for="todoImage" class="image-upload-label">
+                        <span class="upload-icon">📷</span>
+                        <span class="upload-text">Add Image</span>
+                    </label>
+                    <input type="file" id="todoImage" accept="image/*" style="display: none;">
+                    <span id="fileNameDisplay" class="file-name-display"></span>
+                </div>
                 <button type="submit" class="btn btn-primary">Add Todo</button>
             </form>
             

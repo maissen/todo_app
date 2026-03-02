@@ -80,9 +80,19 @@ function renderTodos() {
                        class="todo-checkbox" 
                        ${todo.completed ? 'checked' : ''} 
                        onchange="toggleTodo('${todo.id}', ${!todo.completed})">
-                <div class="todo-title">${escapeHtml(todo.title)}</div>
-                <div class="todo-actions">
-                    <button class="btn-delete" onclick="deleteTodo('${todo.id}')">Delete</button>
+                <div class="todo-media-container">
+                    ${todo.imageUrl ? 
+                      `<img src="${todo.imageUrl}" alt="Todo Image" class="todo-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` :
+                      `<button class="todo-media-placeholder" onclick="uploadMediaToTodo('${todo.id}')">
+                         <span class="media-icon">📷</span>
+                       </button>`
+                    }
+                </div>
+                <div class="todo-content">
+                    <div class="todo-title">${escapeHtml(todo.title)}</div>
+                    <div class="todo-actions">
+                        <button class="btn-delete" onclick="deleteTodo('${todo.id}')">Delete</button>
+                    </div>
                 </div>
             </div>
             ${todo.description ? `<div class="todo-description">${escapeHtml(todo.description)}</div>` : ''}
@@ -104,35 +114,79 @@ function formatDate(dateString) {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
 
+// Handle file selection and display filename
+document.getElementById('todoImage').addEventListener('change', function(e) {
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    if (this.files && this.files[0]) {
+        const file = this.files[0];
+        fileNameDisplay.textContent = file.name;
+        
+        // Check file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+        if (file.size > maxSize) {
+            alert('File size exceeds 5MB limit. Please select a smaller image.');
+            this.value = '';
+            fileNameDisplay.textContent = '';
+        }
+    } else {
+        fileNameDisplay.textContent = '';
+    }
+});
+
 // Add todo
 document.getElementById('addTodoForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const title = document.getElementById('todoTitle').value;
     const description = document.getElementById('todoDescription').value;
+    const imageInput = document.getElementById('todoImage');
+    
+    // Create FormData to send multipart data
+    const formData = new FormData();
+    formData.append('title', title);
+    if (description) {
+        formData.append('description', description);
+    }
+    
+    // Add image if selected
+    if (imageInput.files && imageInput.files[0]) {
+        const file = imageInput.files[0];
+        const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+        
+        if (file.size > maxSize) {
+            alert('File size exceeds 5MB limit. Please select a smaller image.');
+            return;
+        }
+        
+        formData.append('image', file);
+    }
     
     try {
         const response = await fetch(`${ENV.API_URL}/todos`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${authToken}`
+                // Don't set Content-Type manually - let browser set it with boundary
             },
-            body: JSON.stringify({ 
-                title, 
-                description: description || undefined 
-            })
+            body: formData
         });
         
         if (response.ok) {
             document.getElementById('todoTitle').value = '';
             document.getElementById('todoDescription').value = '';
+            document.getElementById('todoImage').value = '';
+            document.getElementById('fileNameDisplay').textContent = '';
             await fetchTodos();
         } else if (response.status === 401) {
             logout();
+        } else {
+            const errorData = await response.json();
+            console.error('Error adding todo:', errorData);
+            alert(errorData.error?.message || 'Failed to add todo');
         }
     } catch (error) {
         console.error('Error adding todo:', error);
+        alert('Network error. Please try again.');
     }
 });
 
@@ -156,6 +210,57 @@ async function toggleTodo(id, completed) {
     } catch (error) {
         console.error('Error updating todo:', error);
     }
+}
+
+// Upload media to existing todo
+async function uploadMediaToTodo(id) {
+    // Create a temporary input element for file selection
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    
+    fileInput.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Check file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+        if (file.size > maxSize) {
+            alert('File size exceeds 5MB limit. Please select a smaller image.');
+            return;
+        }
+        
+        // Create FormData to send multipart data
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const response = await fetch(`${ENV.API_URL}/todos/${id}/image`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                    // Don't set Content-Type manually - let browser set it with boundary
+                },
+                body: formData
+            });
+            
+            if (response.ok) {
+                await fetchTodos(); // Refresh the todo list
+            } else if (response.status === 401) {
+                logout();
+            } else {
+                const errorData = await response.json();
+                console.error('Error uploading media:', errorData);
+                alert(errorData.error?.message || 'Failed to upload media');
+            }
+        } catch (error) {
+            console.error('Error uploading media:', error);
+            alert('Network error. Please try again.');
+        }
+    };
+    
+    // Trigger the file selection dialog
+    fileInput.click();
 }
 
 // Delete todo
