@@ -15,7 +15,10 @@ class User(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     username = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
+    profile_picture_url = Column(String(500), nullable=True)  # S3 URL of the profile picture
+    profile_picture_key = Column(String(500), nullable=True)  # S3 object key for deletion
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship
     todos = relationship("Todo", back_populates="user", cascade="all, delete-orphan")
@@ -28,6 +31,8 @@ class Todo(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     completed = Column(Boolean, default=False, nullable=False)
+    image_url = Column(String(500), nullable=True)      # S3 URL of the image
+    image_key = Column(String(500), nullable=True)       # S3 object key for deletion
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)

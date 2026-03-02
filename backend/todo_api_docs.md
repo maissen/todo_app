@@ -237,19 +237,58 @@ Authorization: Bearer <token>
 
 ### Todo Media
 
-#### Upload Image for Todo
-Upload an image for a specific todo item. Maximum file size: 5MB. Supported formats: JPEG, PNG, GIF, WEBP.
+#### Get Pre-signed Upload URL for Todo Image
+Get a pre-signed URL to upload an image for a specific todo item directly to S3. The client then uses this URL to upload the file directly to S3.
+
+**Endpoint:** `POST /todos/:id/image/presigned-url`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request Body:**
+```json
+{
+  "filename": "string",      // Original filename
+  "content_type": "string"   // MIME type of the file
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "presignedUrl": "string",   // URL to upload the file directly to S3
+  "objectKey": "string",      // S3 object key for the file
+  "expiresAt": "2026-01-26T11:00:00Z"  // Expiration time of the URL
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - Todo not found
+- `403 Forbidden` - Todo belongs to another user
+- `400 Bad Request` - Invalid file type
+- `500 Internal Server Error` - Failed to generate pre-signed URL
+
+---
+
+#### Save Todo Image Metadata
+After uploading the file to S3 using the pre-signed URL, call this endpoint to save the metadata in the database.
 
 **Endpoint:** `POST /todos/:id/image`
 
 **Headers:**
 ```
 Authorization: Bearer <token>
-Content-Type: multipart/form-data
 ```
 
-**Request Body (multipart/form-data):**
-- `image` (file): The image file to upload
+**Request Body:**
+```json
+{
+  "object_key": "string"   // S3 object key received from the pre-signed URL endpoint
+}
+```
 
 **Response:** `200 OK`
 ```json
@@ -268,22 +307,12 @@ Content-Type: multipart/form-data
 - `401 Unauthorized` - Missing or invalid token
 - `404 Not Found` - Todo not found
 - `403 Forbidden` - Todo belongs to another user
-- `400 Bad Request` - No file provided or invalid file type
-- `413 Payload Too Large` - File exceeds maximum size
 - `500 Internal Server Error` - S3 upload failed
-
-**Example cURL:**
-```bash
-curl -X POST \
-  https://api.example.com/todos/123/image \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "image=@/path/to/image.jpg"
-```
 
 ---
 
 #### Get Todo Image
-Retrieve the image URL for a todo item. If the S3 bucket is private, this endpoint returns a signed URL valid for 1 hour.
+Retrieve a pre-signed URL to access a todo item's image directly from S3. The URL is valid for 1 hour.
 
 **Endpoint:** `GET /todos/:id/image`
 
@@ -295,7 +324,7 @@ Authorization: Bearer <token>
 **Response:** `200 OK`
 ```json
 {
-  "imageUrl": "https://your-bucket.s3.amazonaws.com/todos/user123/todo456.jpg",
+  "profilePictureUrl": "https://your-bucket.s3.amazonaws.com/todos/user123/todo456.jpg?X-Amz-Signature=...",
   "expiresAt": "2026-01-26T11:00:00Z" // only if using signed URLs
 }
 ```
@@ -338,6 +367,126 @@ Authorization: Bearer <token>
 
 ---
 
+### Profile Picture Media
+
+#### Get Pre-signed Upload URL for Profile Picture
+Get a pre-signed URL to upload a profile picture directly to S3. The client then uses this URL to upload the file directly to S3.
+
+**Endpoint:** `POST /profile/picture/presigned-url`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request Body:**
+```json
+{
+  "filename": "string",      // Original filename
+  "content_type": "string"   // MIME type of the file
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "presignedUrl": "string",   // URL to upload the file directly to S3
+  "objectKey": "string",      // S3 object key for the file
+  "expiresAt": "2026-01-26T11:00:00Z"  // Expiration time of the URL
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `400 Bad Request` - Invalid file type
+- `500 Internal Server Error` - Failed to generate pre-signed URL
+
+---
+
+#### Save Profile Picture Metadata
+After uploading the file to S3 using the pre-signed URL, call this endpoint to save the metadata in the database.
+
+**Endpoint:** `POST /profile/picture`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request Body:**
+```json
+{
+  "object_key": "string"   // S3 object key received from the pre-signed URL endpoint
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "string",
+  "username": "string",
+  "profilePictureUrl": "https://your-bucket.s3.amazonaws.com/profiles/user123/profile.jpg",
+  "updatedAt": "2026-01-26T10:00:00Z"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `500 Internal Server Error` - S3 upload failed
+
+---
+
+#### Get Profile Picture
+Retrieve a pre-signed URL to access the profile picture directly from S3. The URL is valid for 1 hour.
+
+**Endpoint:** `GET /profile/picture`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "profilePictureUrl": "https://your-bucket.s3.amazonaws.com/profiles/user123/profile.jpg?X-Amz-Signature=...",
+  "expiresAt": "2026-01-26T11:00:00Z" // only if using signed URLs
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - User has no profile picture
+
+---
+
+#### Delete Profile Picture
+Delete the profile picture associated with the authenticated user.
+
+**Endpoint:** `DELETE /profile/picture`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "string",
+  "username": "string",
+  "profilePictureUrl": null,
+  "updatedAt": "2026-01-26T10:00:00Z"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
+- `404 Not Found` - User has no profile picture to delete
+- `500 Internal Server Error` - S3 deletion failed
+
+---
+
 ## Error Response Format
 
 All error responses follow this structure:
@@ -367,8 +516,23 @@ All error responses follow this structure:
 - `NO_IMAGE_FOUND` - Todo item has no associated image
 - `UPLOAD_FAILED` - Failed to upload file to storage
 - `DELETE_FAILED` - Failed to delete file from storage
+- `PROFILE_PICTURE_NOT_FOUND` - User has no profile picture set
 
 ## Database Schema Changes
+
+The User model now includes:
+
+```javascript
+{
+  id: "string",
+  username: "string",
+  hashed_password: "string",
+  profilePictureUrl: "string | null",  // S3 URL of the profile picture
+  profilePictureKey: "string | null",  // S3 object key for deletion
+  createdAt: "datetime",
+  updatedAt: "datetime"
+}
+```
 
 The Todo model now includes:
 

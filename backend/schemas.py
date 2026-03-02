@@ -16,6 +16,8 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: str
     username: str
+    profilePictureUrl: Optional[str] = None
+    updatedAt: Optional[datetime] = None
     token: str
 
 
@@ -35,6 +37,7 @@ class TodoResponse(BaseModel):
     title: str
     description: Optional[str]
     completed: bool
+    imageUrl: Optional[str] = None
     createdAt: datetime
     updatedAt: Optional[datetime] = None
     
@@ -49,6 +52,7 @@ class TodoResponse(BaseModel):
             title=obj.title,
             description=obj.description,
             completed=obj.completed,
+            imageUrl=getattr(obj, 'image_url', None),
             createdAt=obj.created_at,
             updatedAt=obj.updated_at
         )
@@ -57,3 +61,20 @@ class TodoResponse(BaseModel):
 class TodoListResponse(BaseModel):
     todos: List[TodoResponse]
     total: int
+
+
+class ProfilePictureResponse(BaseModel):
+    id: str
+    username: str
+    profilePictureUrl: Optional[str] = None
+    updatedAt: Optional[datetime]
+
+
+class ProfilePictureGetResponse(BaseModel):
+    profilePictureUrl: Optional[str] = None
+
+
+class PresignedUrlResponse(BaseModel):
+    presignedUrl: str
+    objectKey: str
+    expiresAt: datetime
