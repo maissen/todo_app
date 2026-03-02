@@ -1,137 +1,194 @@
-import boto3
 import os
+import boto3
 from botocore.exceptions import ClientError
+from fastapi import HTTPException, status
 from typing import Optional
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
+from dotenv import load_dotenv
+from urllib.parse import urlparse
 
-# Initialize S3 client using IAM role (no explicit credentials needed)
-s3_client = boto3.client('s3')
+# Load environment variables
+load_dotenv()
 
-def generate_presigned_upload_url(bucket_name: str, object_key: str, content_type: str = None, expiration: int = 3600) -> str:
+# S3 Configuration
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")
+
+# Initialize S3 client
+def get_s3_client():
+    # Use IAM role credentials (no explicit access keys needed)
+    return boto3.client('s3', region_name=S3_REGION)
+
+def upload_file_to_s3(file_bytes: bytes, filename: str, user_id: str, folder: str) -> tuple[str, str]:
     """
-    Generate a pre-signed URL for uploading a file to S3.
+    Upload a file to S3
     
     Args:
-        bucket_name: Name of the S3 bucket
-        object_key: S3 object key (path) where file will be stored
-        content_type: MIME type of the file (optional)
-        expiration: Time in seconds for the URL to remain valid (default: 1 hour)
+        file_bytes: The file content as bytes
+        filename: Original filename
+        user_id: ID of the user uploading
+        folder: Folder name (e.g., 'todos', 'profiles')
     
     Returns:
-        str: Pre-signed URL for uploading the file
+        Tuple of (file_url, file_key)
     """
-    try:
-        params = {
-            'Bucket': bucket_name,
-            'Key': object_key,
-        }
-        
-        if content_type:
-            params['ContentType'] = content_type
-            
-        # Generate the pre-signed URL for PUT request
-        upload_url = s3_client.generate_presigned_url(
-            'put_object',
-            Params=params,
-            ExpiresIn=expiration
-        )
-        
-        return upload_url
-        
-    except ClientError as e:
-        print(f"Error generating pre-signed upload URL: {e}")
-        raise Exception(f"Pre-signed URL generation failed: {str(e)}")
-
-
-def generate_presigned_get_url(bucket_name: str, object_key: str, expiration: int = 3600) -> str:
-    """
-    Generate a pre-signed URL for retrieving a file from S3.
+    s3_client = get_s3_client()
     
-    Args:
-        bucket_name: Name of the S3 bucket
-        object_key: S3 object key (path) of the file to retrieve
-        expiration: Time in seconds for the URL to remain valid (default: 1 hour)
-    
-    Returns:
-        str: Pre-signed URL for retrieving the file
-    """
-    try:
-        # Generate the pre-signed URL for GET request
-        get_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': bucket_name,
-                'Key': object_key,
-            },
-            ExpiresIn=expiration
-        )
-        
-        return get_url
-        
-    except ClientError as e:
-        print(f"Error generating pre-signed get URL: {e}")
-        raise Exception(f"Pre-signed URL generation failed: {str(e)}")
-
-
-def delete_file_from_s3(bucket_name: str, object_key: str):
-    """
-    Delete a file from S3 bucket.
-    
-    Args:
-        bucket_name: Name of the S3 bucket
-        object_key: S3 object key (path) of the file to delete
-    """
-    try:
-        s3_client.delete_object(
-            Bucket=bucket_name,
-            Key=object_key
-        )
-    except ClientError as e:
-        print(f"Error deleting file from S3: {e}")
-        raise Exception(f"S3 deletion failed: {str(e)}")
-
-
-def generate_unique_filename(original_filename: str, user_id: str, folder: str = "profiles") -> tuple[str, str]:
-    """
-    Generate a unique filename for S3 storage.
-    
-    Args:
-        original_filename: Original filename from user upload
-        user_id: User ID to organize files
-        folder: Folder prefix (default: "profiles")
-    
-    Returns:
-        tuple: (full_object_key, file_extension)
-    """
     # Extract file extension
-    _, ext = os.path.splitext(original_filename)
-    ext = ext.lower()
+    file_extension = os.path.splitext(filename)[1].lower()
+    allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
     
-    # Generate unique filename using UUID
-    unique_filename = f"{uuid.uuid4()}{ext}"
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "INVALID_FILE_TYPE",
+                    "message": f"File type {file_extension} not supported. Supported types: {', '.join(allowed_extensions)}"
+                }
+            }
+        )
     
-    # Create the full object key: profiles/user_id/filename.ext
-    object_key = f"{folder}/{user_id}/{unique_filename}"
+    # Create a unique key for the file
+    unique_filename = f"{folder}/{user_id}/{uuid.uuid4()}{file_extension}"
     
-    return object_key, ext
+    try:
+        s3_client.upload_fileobj(
+            file_bytes,
+            S3_BUCKET_NAME,
+            unique_filename,
+            ExtraArgs={'ContentType': get_content_type(file_extension)}
+        )
+        
+        # Generate the public URL
+        file_url = f"https://{S3_BUCKET_NAME}.s3.{S3_REGION}.amazonaws.com/{unique_filename}"
+        return file_url, unique_filename
+        
+    except ClientError as e:
+        print(f"S3 Upload Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "UPLOAD_FAILED",
+                    "message": "Failed to upload file to storage"
+                }
+            }
+        )
 
+def delete_file_from_s3(bucket_name: str, file_key: str) -> bool:
+    """
+    Delete a file from S3
+    
+    Args:
+        bucket_name: The S3 bucket name
+        file_key: The S3 object key to delete
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    s3_client = get_s3_client()
+    
+    try:
+        s3_client.delete_object(Bucket=bucket_name, Key=file_key)
+        return True
+    except ClientError as e:
+        print(f"S3 Delete Error: {e}")
+        return False
+
+def get_content_type(extension: str) -> str:
+    """Get the content type for a given file extension"""
+    content_types = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    return content_types.get(extension.lower(), 'application/octet-stream')
 
 def is_valid_image_type(content_type: str) -> bool:
-    """
-    Check if the file content type is a valid image type.
-    
-    Args:
-        content_type: MIME type of the file
-    
-    Returns:
-        bool: True if valid image type, False otherwise
-    """
+    """Check if the content type is a valid image type"""
     valid_types = [
         'image/jpeg',
-        'image/jpg', 
+        'image/jpg',
         'image/png',
         'image/gif',
         'image/webp'
     ]
     return content_type.lower() in valid_types
+
+def generate_unique_filename(original_filename: str, user_id: str, folder: str) -> tuple[str, str]:
+    """
+    Generate a unique filename for S3 storage
+    
+    Args:
+        original_filename: Original filename
+        user_id: ID of the user
+        folder: Folder name (e.g., 'todos', 'profiles')
+    
+    Returns:
+        Tuple of (unique_key, extension)
+    """
+    file_extension = os.path.splitext(original_filename)[1].lower()
+    unique_key = f"{folder}/{user_id}/{uuid.uuid4()}{file_extension}"
+    return unique_key, file_extension
+
+def generate_presigned_upload_url(bucket_name: str, object_key: str, content_type: str, expiration: int = 3600) -> str:
+    """
+    Generate a pre-signed URL for uploading files to S3
+    
+    Args:
+        bucket_name: S3 bucket name
+        object_key: S3 object key
+        content_type: Content type of the file
+        expiration: Expiration time in seconds (default 1 hour)
+    
+    Returns:
+        Pre-signed URL for upload
+    """
+    s3_client = get_s3_client()
+    
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': object_key,
+                'ContentType': content_type
+            },
+            ExpiresIn=expiration
+        )
+        return presigned_url
+    except ClientError as e:
+        print(f"Error generating presigned upload URL: {e}")
+        raise
+
+def generate_presigned_get_url(bucket_name: str, object_key: str, expiration: int = 3600) -> str:
+    """
+    Generate a pre-signed URL for retrieving files from S3
+    
+    Args:
+        bucket_name: S3 bucket name
+        object_key: S3 object key
+        expiration: Expiration time in seconds (default 1 hour)
+    
+    Returns:
+        Pre-signed URL for download
+    """
+    s3_client = get_s3_client()
+    
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': object_key
+            },
+            ExpiresIn=expiration
+        )
+        return presigned_url
+    except ClientError as e:
+        print(f"Error generating presigned get URL: {e}")
+        raise

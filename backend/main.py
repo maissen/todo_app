@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -6,15 +6,11 @@ from typing import Optional, List
 import models
 import schemas
 import auth
+import os
 from database import engine, get_db
 from datetime import datetime
-import os
-from s3_utils import (
-    upload_file_to_s3,
-    delete_file_from_s3,
-    generate_unique_filename,
-    is_valid_image_type
-)
+import io
+from s3_utils import upload_file_to_s3, delete_file_from_s3
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -195,18 +191,51 @@ async def get_todo(
 
 @app.post("/todos", response_model=schemas.TodoResponse, status_code=status.HTTP_201_CREATED)
 async def create_todo(
-    todo_data: schemas.TodoCreate,
+    title: str,
+    description: Optional[str] = None,
+    image: UploadFile = File(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Create the todo first
     new_todo = models.Todo(
-        title=todo_data.title,
-        description=todo_data.description,
+        title=title,
+        description=description,
         user_id=current_user.id
     )
     db.add(new_todo)
     db.commit()
     db.refresh(new_todo)
+    
+    # If an image was provided, upload it to S3
+    if image is not None:
+        # Validate file size (limit to 5MB)
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+        image_bytes = await image.read()
+        if len(image_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_PAYLOAD_TOO_LARGE,
+                detail={
+                    "error": {
+                        "code": "FILE_TOO_LARGE",
+                        "message": "File exceeds maximum size of 5MB"
+                    }
+                }
+            )
+        
+        # Reset file pointer to beginning after reading
+        await image.seek(0)
+        
+        # Upload to S3
+        file_url, file_key = upload_file_to_s3(
+            image.file, image.filename, current_user.id, "todos"
+        )
+        
+        # Update the todo with image information
+        new_todo.image_url = file_url
+        new_todo.image_key = file_key
+        db.commit()
+        db.refresh(new_todo)
     
     return schemas.TodoResponse.from_orm(new_todo)
 
@@ -288,21 +317,23 @@ async def delete_todo(
             }
         )
     
+    # If the todo has an associated image, delete it from S3
+    if todo.image_key:
+        delete_file_from_s3(os.getenv("S3_BUCKET_NAME"), todo.image_key)
+    
     db.delete(todo)
     db.commit()
     
     return None
 
 
-# Todo Image Endpoints
-@app.post("/todos/{todo_id}/image/presigned-url", response_model=schemas.PresignedUrlResponse)
-async def get_todo_image_presigned_url(
+@app.post("/todos/{todo_id}/image", response_model=schemas.TodoResponse)
+async def upload_todo_image(
     todo_id: str,
-    filename: str,
-    content_type: str,
-    current_user: models.User = Depends(get_current_user)
+    image: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    # Get the todo
     todo = db.query(models.Todo).filter(models.Todo.id == todo_id).first()
     
     if not todo:
@@ -327,173 +358,49 @@ async def get_todo_image_presigned_url(
             }
         )
     
-    # Validate file type
-    if not is_valid_image_type(content_type):
+    # Check if todo already has an image - if so, don't allow re-uploading
+    if todo.image_key is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": {
-                    "code": "INVALID_FILE_TYPE",
-                    "message": "File type not supported. Supported formats: JPEG, PNG, GIF, WEBP"
+                    "code": "IMAGE_ALREADY_EXISTS",
+                    "message": "Todo item already has an image. Cannot update media again."
                 }
             }
         )
     
-    # Generate unique filename
-    bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-    object_key, _ = generate_unique_filename(filename, todo.user_id, "todos")
-    
-    try:
-        # Generate pre-signed upload URL
-        presigned_url = generate_presigned_upload_url(
-            bucket_name,
-            object_key,
-            content_type
-        )
-        
-        # Calculate expiration time
-        expires_at = datetime.utcnow() + timedelta(seconds=3600)  # 1 hour
-        
-        return schemas.PresignedUrlResponse(
-            presignedUrl=presigned_url,
-            objectKey=object_key,
-            expiresAt=expires_at
-        )
-        
-    except Exception as e:
+    # Validate file size (limit to 5MB)
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    image_bytes = await image.read()
+    if len(image_bytes) > MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_413_PAYLOAD_TOO_LARGE,
             detail={
                 "error": {
-                    "code": "UPLOAD_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
-
-
-@app.post("/todos/{todo_id}/image", response_model=schemas.TodoResponse)
-async def save_todo_image_metadata(
-    todo_id: str,
-    object_key: str,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # Get the todo
-    todo = db.query(models.Todo).filter(models.Todo.id == todo_id).first()
-    
-    if not todo:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": {
-                    "code": "TODO_NOT_FOUND",
-                    "message": "Requested todo does not exist"
+                    "code": "FILE_TOO_LARGE",
+                    "message": "File exceeds maximum size of 5MB"
                 }
             }
         )
     
-    if todo.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "error": {
-                    "code": "UNAUTHORIZED_ACCESS",
-                    "message": "User doesn't have permission"
-                }
-            }
-        )
+    # Reset file pointer to beginning after reading
+    await image.seek(0)
     
-    # If todo already has an image, delete the old one
-    if todo.image_key:
-        try:
-            bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-            delete_file_from_s3(bucket_name, todo.image_key)
-        except Exception:
-            # Log the error but continue
-            print(f"Failed to delete old image for todo {todo.id}")
+    # Upload to S3
+    file_url, file_key = upload_file_to_s3(
+        image.file, image.filename, current_user.id, "todos"
+    )
     
-    try:
-        # Update todo record with new image info
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        todo.image_key = object_key
-        todo.image_url = f"https://{bucket_name}.s3.amazonaws.com/{object_key}"
-        todo.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(todo)
-        
-        return schemas.TodoResponse.from_orm(todo)
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": {
-                    "code": "UPLOAD_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
-
-
-@app.get("/todos/{todo_id}/image", response_model=schemas.ProfilePictureGetResponse)
-async def get_todo_image(
-    todo_id: str,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    todo = db.query(models.Todo).filter(models.Todo.id == todo_id).first()
+    # Update the todo with image information
+    todo.image_url = file_url
+    todo.image_key = file_key
+    todo.updated_at = datetime.utcnow()
     
-    if not todo:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": {
-                    "code": "TODO_NOT_FOUND",
-                    "message": "Requested todo does not exist"
-                }
-            }
-        )
+    db.commit()
+    db.refresh(todo)
     
-    if todo.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "error": {
-                    "code": "UNAUTHORIZED_ACCESS",
-                    "message": "User doesn't have permission"
-                }
-            }
-        )
-    
-    if not todo.image_key:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": {
-                    "code": "NO_IMAGE_FOUND",
-                    "message": "Todo item has no associated image"
-                }
-            }
-        )
-    
-    try:
-        # Generate pre-signed URL for the todo image
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        presigned_url = generate_presigned_get_url(
-            bucket_name,
-            todo.image_key
-        )
-        
-        return schemas.ProfilePictureGetResponse(
-            profilePictureUrl=presigned_url
-        )
-    except Exception:
-        # Fallback to the stored URL if pre-signed URL generation fails
-        return schemas.ProfilePictureGetResponse(
-            profilePictureUrl=todo.image_url
-        )
+    return schemas.TodoResponse.from_orm(todo)
 
 
 @app.delete("/todos/{todo_id}/image", response_model=schemas.TodoResponse)
@@ -526,6 +433,7 @@ async def delete_todo_image(
             }
         )
     
+    # Check if todo has an image
     if not todo.image_key:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -537,206 +445,25 @@ async def delete_todo_image(
             }
         )
     
-    try:
-        # Delete from S3
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        delete_file_from_s3(bucket_name, todo.image_key)
-        
-        # Update todo record to remove image info
-        todo.image_url = None
-        todo.image_key = None
-        todo.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(todo)
-        
-        return schemas.TodoResponse.from_orm(todo)
-        
-    except Exception as e:
+    # Delete the image from S3
+    success = delete_file_from_s3(os.getenv("S3_BUCKET_NAME"), todo.image_key)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": {
                     "code": "DELETE_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
-
-
-# Profile Picture Endpoints
-@app.post("/profile/picture/presigned-url", response_model=schemas.PresignedUrlResponse)
-async def get_profile_picture_presigned_url(
-    filename: str,
-    content_type: str,
-    current_user: models.User = Depends(get_current_user)
-):
-    # Validate file type
-    if not is_valid_image_type(content_type):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": {
-                    "code": "INVALID_FILE_TYPE",
-                    "message": "File type not supported. Supported formats: JPEG, PNG, GIF, WEBP"
+                    "message": "Failed to delete image from storage"
                 }
             }
         )
     
-    # Generate unique filename
-    bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-    object_key, _ = generate_unique_filename(filename, current_user.id, "profiles")
+    # Update the todo to remove image information
+    todo.image_url = None
+    todo.image_key = None
+    todo.updated_at = datetime.utcnow()
     
-    try:
-        # Generate pre-signed upload URL
-        presigned_url = generate_presigned_upload_url(
-            bucket_name,
-            object_key,
-            content_type
-        )
-        
-        # Calculate expiration time
-        expires_at = datetime.utcnow() + timedelta(seconds=3600)  # 1 hour
-        
-        return schemas.PresignedUrlResponse(
-            presignedUrl=presigned_url,
-            objectKey=object_key,
-            expiresAt=expires_at
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": {
-                    "code": "UPLOAD_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
-
-
-@app.post("/profile/picture", response_model=schemas.ProfilePictureResponse)
-async def save_profile_picture_metadata(
-    object_key: str,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # If user already has a profile picture, delete the old one
-    if current_user.profile_picture_key:
-        try:
-            bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-            delete_file_from_s3(bucket_name, current_user.profile_picture_key)
-        except Exception:
-            # Log the error but continue
-            print(f"Failed to delete old profile picture for user {current_user.id}")
+    db.commit()
+    db.refresh(todo)
     
-    try:
-        # Update user record with new profile picture info
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        current_user.profile_picture_key = object_key
-        current_user.profile_picture_url = f"https://{bucket_name}.s3.amazonaws.com/{object_key}"
-        current_user.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(current_user)
-        
-        return schemas.ProfilePictureResponse(
-            id=current_user.id,
-            username=current_user.username,
-            profilePictureUrl=current_user.profile_picture_url,
-            updatedAt=current_user.updated_at
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": {
-                    "code": "UPLOAD_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
-
-
-@app.get("/profile/picture", response_model=schemas.ProfilePictureGetResponse)
-async def get_profile_picture(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if not current_user.profile_picture_key:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": {
-                    "code": "PROFILE_PICTURE_NOT_FOUND",
-                    "message": "User has no profile picture"
-                }
-            }
-        )
-    
-    try:
-        # Generate pre-signed URL for the profile picture
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        presigned_url = generate_presigned_get_url(
-            bucket_name,
-            current_user.profile_picture_key
-        )
-        
-        return schemas.ProfilePictureGetResponse(
-            profilePictureUrl=presigned_url
-        )
-    except Exception:
-        # Fallback to the stored URL if pre-signed URL generation fails
-        return schemas.ProfilePictureGetResponse(
-            profilePictureUrl=current_user.profile_picture_url
-        )
-
-
-@app.delete("/profile/picture", response_model=schemas.ProfilePictureResponse)
-async def delete_profile_picture(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if not current_user.profile_picture_key:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": {
-                    "code": "PROFILE_PICTURE_NOT_FOUND",
-                    "message": "User has no profile picture to delete"
-                }
-            }
-        )
-    
-    try:
-        # Delete from S3
-        bucket_name = os.getenv("S3_BUCKET_NAME", "todo-app-bucket")
-        delete_file_from_s3(bucket_name, current_user.profile_picture_key)
-        
-        # Update user record to remove profile picture info
-        current_user.profile_picture_url = None
-        current_user.profile_picture_key = None
-        current_user.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(current_user)
-        
-        return schemas.ProfilePictureResponse(
-            id=current_user.id,
-            username=current_user.username,
-            profilePictureUrl=current_user.profile_picture_url,
-            updatedAt=current_user.updated_at
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": {
-                    "code": "DELETE_FAILED",
-                    "message": str(e)
-                }
-            }
-        )
+    return schemas.TodoResponse.from_orm(todo)
