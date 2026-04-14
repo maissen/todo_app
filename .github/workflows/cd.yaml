@@ -1,0 +1,204 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+      - 'releases/v*'
+
+  release:
+    types:
+      - published
+
+jobs:
+  decide-env:
+    runs-on: ubuntu-latest
+
+    outputs:
+      env: ${{ steps.decide.outputs.env }}
+      env_upper: ${{ steps.decide.outputs.env_upper }}
+      image_tag: ${{ steps.decide.outputs.image_tag }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide environment
+        id: decide
+        run: |
+          SHA_SHORT=${GITHUB_SHA::8}
+
+          ENV="qa"
+          ENV_UPPER="QA"
+          IMAGE_TAG="$SHA_SHORT"
+
+          if [[ "${GITHUB_REF_NAME}" == releases/v* ]]; then
+            VERSION=${GITHUB_REF_NAME#releases/}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+            ENV="staging"
+            ENV_UPPER="STAGING"
+            IMAGE_TAG="${VERSION}-${SHA_SHORT}"
+          fi
+
+          if [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "published" ]]; then
+            ENV="prod"
+            ENV_UPPER="PROD"
+            IMAGE_TAG="${{ github.event.release.tag_name }}"
+          fi
+
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+          echo "env_upper=$ENV_UPPER" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "environment is set to $ENV_UPPER"
+
+      - name: Create draft release
+        if: startsWith(github.ref_name, 'releases/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.decide.outputs.version }}
+          name: Release ${{ steps.decide.outputs.version }}
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_run_backend: ${{ steps.filter.outputs.backend == 'true' }}
+      should_run_frontend: ${{ steps.filter.outputs.frontend == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check changed paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  cd-backend:
+    name: Deploy backend to ${{ needs.decide-env.outputs.env }}
+    needs: [decide-env, changes]
+    if: needs.changes.outputs.should_run_backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      IMAGE_TAG: ${{ needs.decide-env.outputs.image_tag }}
+
+    environment:
+      name: ${{ needs.decide-env.outputs.env }}
+      url: ${{ vars[format('{0}_URL', needs.decide-env.outputs.env_upper)] }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-backend:${{ env.IMAGE_TAG }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-backend:latest
+
+      - name: Download backend task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ vars[format('{0}_BACKEND_TASK_DEF_FAMILY', needs.decide-env.outputs.env_upper)] }} \
+            --query taskDefinition \
+            > backend-task-definition.json
+
+      - name: Render backend task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: backend-task-definition.json
+          container-name: ${{ vars.BACKEND_CONTAINER_NAME }}
+          image: ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-backend:${{ env.IMAGE_TAG }}
+
+      - name: Deploy backend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ vars[format('{0}_BACKEND_ECS_SERVICE', needs.decide-env.outputs.env_upper)] }}
+          cluster: ${{ vars[format('{0}_ECS_CLUSTER', needs.decide-env.outputs.env_upper)] }}
+          wait-for-service-stability: true
+
+  cd-frontend:
+    name: Deploy frontend to ${{ needs.decide-env.outputs.env }}
+    needs: [decide-env, changes]
+    if: needs.changes.outputs.should_run_frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      IMAGE_TAG: ${{ needs.decide-env.outputs.image_tag }}
+
+    environment:
+      name: ${{ needs.decide-env.outputs.env }}
+      url: ${{ vars[format('{0}_URL', needs.decide-env.outputs.env_upper)] }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-frontend:${{ env.IMAGE_TAG }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-frontend:latest
+
+      - name: Download frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ vars[format('{0}_FRONTEND_TASK_DEF_FAMILY', needs.decide-env.outputs.env_upper)] }} \
+            --query taskDefinition \
+            > frontend-task-definition.json
+
+      - name: Render frontend task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: frontend-task-definition.json
+          container-name: ${{ vars.FRONTEND_CONTAINER_NAME }}
+          image: ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-frontend:${{ env.IMAGE_TAG }}
+
+      - name: Deploy frontend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ vars[format('{0}_FRONTEND_ECS_SERVICE', needs.decide-env.outputs.env_upper)] }}
+          cluster: ${{ vars[format('{0}_ECS_CLUSTER', needs.decide-env.outputs.env_upper)] }}
+          wait-for-service-stability: true
