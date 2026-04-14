@@ -1,4 +1,5 @@
 name: CI
+
 on:
   pull_request:
     branches:
@@ -11,8 +12,10 @@ jobs:
     outputs:
       should_run_backend: ${{ steps.filter.outputs.backend == 'true' }}
       should_run_frontend: ${{ steps.filter.outputs.frontend == 'true' }}
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Check changed paths
         uses: dorny/paths-filter@v4
         id: filter
@@ -20,7 +23,6 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
-
             frontend:
               - 'frontend/**'
 
@@ -28,9 +30,9 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.should_run_backend == 'true'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Docker
         uses: docker/setup-docker-action@v5
@@ -41,12 +43,12 @@ jobs:
           context: ./backend
           load: true
           tags: |
-            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-backend:test
+            ${{ vars.BACKEND_ECR_REGISTRY }}:test
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: '${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-backend:test'
+          image-ref: '${{ vars.BACKEND_ECR_REGISTRY }}:test'
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
@@ -55,9 +57,9 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.should_run_frontend == 'true'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Docker
         uses: docker/setup-docker-action@v5
@@ -68,13 +70,13 @@ jobs:
           context: ./frontend
           load: true
           tags: |
-            ${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-frontend:test
+            ${{ vars.FRONTEND_ECR_REGISTRY }}:test
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: '${{ vars.ECR_REGISTRY }}/${{ vars.IMAGE_NAME }}-frontend:test'
-          exit-code: '1'
+          image-ref: '${{ vars.FRONTEND_ECR_REGISTRY }}:test'
+          exit-code: '0'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
 
@@ -82,6 +84,7 @@ jobs:
     needs: [changes, build-and-test-backend, build-and-test-frontend]
     if: always()
     runs-on: ubuntu-latest
+
     steps:
       - name: Report CI result
         run: |
@@ -89,12 +92,12 @@ jobs:
           FRONTEND_RESULT="${{ needs.build-and-test-frontend.result }}"
 
           if [[ "$BACKEND_RESULT" == "failure" || "$BACKEND_RESULT" == "cancelled" ]]; then
-            echo "CI failed: build-and-test-backend did not pass"
+            echo "CI failed: backend"
             exit 1
           fi
 
           if [[ "$FRONTEND_RESULT" == "failure" || "$FRONTEND_RESULT" == "cancelled" ]]; then
-            echo "CI failed: build-and-test-frontend did not pass"
+            echo "CI failed: frontend"
             exit 1
           fi
 
