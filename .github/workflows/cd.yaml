@@ -152,7 +152,7 @@ jobs:
     name: Deploy frontend to ${{ needs.decide-env.outputs.env }}
     needs: [decide-env, changes]
     if: |
-      needs.changes.outputs.should_run_backend == 'true' ||
+      needs.changes.outputs.should_run_frontend == 'true' ||
       startsWith(github.ref_name, 'releases/v') ||
       (github.event_name == 'release' && github.event.action == 'published')
     runs-on: ubuntu-latest
